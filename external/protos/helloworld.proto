@@ -5,12 +5,25 @@ package helloworld;
 message Int {
   int32 value = 1;
 }
+
 message PathNFlag {
   string path = 1;
   int32 flag = 2;
 }
+
 message Bytes {
   bytes num1 = 1;
+}
+
+message Time {
+  uint64 sec = 1;
+  uint64 nsec = 2;
+}
+
+message Stat {
+  Time atim = 1;
+  Time mtim = 2;
+  Time ctim = 3;
 }
 
 service BasicRPC {
@@ -18,7 +31,7 @@ service BasicRPC {
   rpc mkdir (PathNFlag) returns (Int) {}
   rpc rm (PathNFlag) returns (Int) {}
   rpc rmdir (PathNFlag) returns (Int) {}
-  rpc stat (PathNFlag) returns (Int) {}
+  rpc stat (PathNFlag) returns (Stat) {}
   rpc open(Int) returns (stream Bytes) {}
   rpc close(stream Bytes) returns (Int) {}
 }

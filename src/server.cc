@@ -1,8 +1,13 @@
 #include "helloworld.grpc.pb.h"
+#include "helper.h"
 
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <signal.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -11,11 +16,6 @@ using grpc::ServerReader;
 using grpc::ServerReaderWriter;
 using grpc::ServerWriter;
 using grpc::Status;
-
-using helloworld::BasicRPC;
-using helloworld::Int;
-using helloworld::PathNFlag;
-using helloworld::Bytes;
 
 constexpr bool CERR_SERVER_CALLS = true;
 
@@ -31,6 +31,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_errors(__PRETTY_FUNCTION__);
+        reply->set_value(::creat(req->path().c_str(), req->flag()));
         return Status::OK;
     }
 
@@ -38,6 +39,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_errors(__PRETTY_FUNCTION__);
+        reply->set_value(::mkdir(req->path().c_str(), req->flag()));
         return Status::OK;
     }
 
@@ -45,6 +47,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_errors(__PRETTY_FUNCTION__);
+        reply->set_value(::rmdir(req->path().c_str()));
         return Status::OK;
     }
 
@@ -52,14 +55,30 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_errors(__PRETTY_FUNCTION__);
+        reply->set_value(::remove(req->path().c_str()));
         return Status::OK;
     }
 
     Status stat(ServerContext* context, const PathNFlag* req
-                           , Int* reply) override
+                           , Stat* reply) override
     {
         cerr_errors(__PRETTY_FUNCTION__);
+        const auto stat = get_stat(req->path().c_str());
+        set_time(reply->mutable_atim(), stat.st_atim);
+        set_time(reply->mutable_mtim(), stat.st_mtim);
+        set_time(reply->mutable_ctim(), stat.st_ctim);
         return Status::OK;
+    }
+
+private:
+    static void set_time(helloworld::Time* ret, const struct timespec& ts) {
+        ret->set_sec(ts.tv_sec);
+        ret->set_nsec(ts.tv_nsec);
+    }
+    static struct stat get_stat(const char* path) {
+        struct stat st;
+        ::stat(path, &st);
+        return st;
     }
 
 //    Status SayServerStreamingString(ServerContext* context, const MessageInt* request

@@ -1,4 +1,5 @@
 #include "helloworld.grpc.pb.h"
+#include "helper.h"
 
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
@@ -16,21 +17,23 @@ using grpc::ClientReader;
 using grpc::ClientWriter;
 
 using grpc::Status;
-using helloworld::BasicRPC;
-
-using helloworld::Int;
-using helloworld::PathNFlag;
-using helloworld::Bytes;
 
 const std::string GRPC = "grpc_";
 const std::string FIRST = GRPC + "first_";
 
 constexpr bool DISABLE_CERR_ERRORS = false;
+constexpr bool PRINT_SERVER_OUT = true;
 
 template <class... T>
 void cerr_errors(const T&... args) {
     if constexpr (!DISABLE_CERR_ERRORS)
         (std::cerr << ... << args) << '\n';
+}
+
+template <class ReplyT>
+void print_server_out(const char* fn, const ReplyT& reply) {
+    if constexpr (PRINT_SERVER_OUT)
+        (std::cerr << fn << " -> " << reply.get_value() << "\n");
 }
 
 
@@ -97,7 +100,20 @@ public:
         return reply->value();
     }
 
-
+    auto c_stat(const std::string& path) {
+        using RespType = Stat;
+        auto reply = 
+        call_grpc([&](ClientContext* c, const PathNFlag& f,
+                RespType* r)
+                {
+                   return stub_->stat(c, f, r);
+                }, get(path), RespType(), 
+                __PRETTY_FUNCTION__);
+        if (!reply) {
+            // some error in grpc
+        }
+        return *reply;
+    }
 
 private:
     template <class ArgT, class ReplyT, class F>
@@ -114,7 +130,7 @@ private:
         }
         return reply;
     }
-    static PathNFlag get(const std::string& path, int flag) {
+    static PathNFlag get(const std::string& path, int flag = 0) {
         PathNFlag pf;
         pf.set_path(path);
         pf.set_flag(flag);
@@ -149,6 +165,7 @@ int main(int argc, char *argv[])
             grpc::InsecureChannelCredentials() , ch_args ));
 
     greeter.c_create("/tmp/a.txt", 0);
+    print_proto_stat(greeter.c_stat("/tmp/a.txt"));
     return 0;
 }
 
