@@ -9,27 +9,3 @@ make
 2. Run Server
 cd build/bin
 ./server
-
-3. Now, there are two ways to run client.
-First is for collecting marshaling and unmarshalling measurements of int, double, string (of varying size) and a complex structure.
-Second is for collecting round trip times for messages(int, string, double, complex) and doing client and server side streaming.
-3a) For first way:
-cd build/bin
-./client 1
-
-3b) For second way:
-cd build/bin
-./client
-
-4. If you want to change Optimization levels, you can either:
-a) change optimization level in CMakeLists.txt.
-set(CMAKE_CXX_FLAGS_RELEASE "-O3") OR set(CMAKE_CXX_FLAGS_RELEASE "-O0")
-b) or pass command line argument for setting CXX Flags.
-
-
-6. Now, several files will be generated inside build/bin folder which will contain time measured in client side.
-In order to get relevant averages out of it. Run following command
-cd  scripts/
-python parse.py.
-
-This will create "averages.data" file inside build/bin and that will contain final data used in presentation.
