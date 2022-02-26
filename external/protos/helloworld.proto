@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package helloworld;
+
+message Int {
+  int32 value = 1;
+}
+message PathNFlag {
+  string path = 1;
+  int32 flag = 2;
+}
+message Bytes {
+  bytes num1 = 1;
+}
+
+service BasicRPC {
+  rpc creat (PathNFlag) returns (Int) {}
+  rpc mkdir (PathNFlag) returns (Int) {}
+  rpc rm (PathNFlag) returns (Int) {}
+  rpc rmdir (PathNFlag) returns (Int) {}
+  rpc stat (PathNFlag) returns (Int) {}
+  rpc open(Int) returns (stream Bytes) {}
+  rpc close(stream Bytes) returns (Int) {}
+}
+
