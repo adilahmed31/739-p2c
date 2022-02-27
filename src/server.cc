@@ -17,36 +17,30 @@ using grpc::ServerReaderWriter;
 using grpc::ServerWriter;
 using grpc::Status;
 
-constexpr bool CERR_SERVER_CALLS = true;
-
-template <class... T>
-void cerr_errors(const T&... args) {
-    if constexpr (CERR_SERVER_CALLS)
-        (std::cerr << ... << args) << '\n';
-}
-
 class BasicRPCServiceImpl final : public BasicRPC::Service
 {
     Status creat(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
-        cerr_errors(__PRETTY_FUNCTION__);
+        cerr_serv_calls(__PRETTY_FUNCTION__);
         reply->set_value(::creat(req->path().c_str(), req->flag()));
+        set_time(reply->mutable_ts(), get_stat(req->path().c_str()).st_mtim);
         return Status::OK;
     }
 
     Status mkdir(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
-        cerr_errors(__PRETTY_FUNCTION__);
+        cerr_serv_calls(__PRETTY_FUNCTION__);
         reply->set_value(::mkdir(req->path().c_str(), req->flag()));
+        set_time(reply->mutable_ts(), get_stat(req->path().c_str()).st_mtim);
         return Status::OK;
     }
 
     Status rmdir(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
-        cerr_errors(__PRETTY_FUNCTION__);
+        cerr_serv_calls(__PRETTY_FUNCTION__);
         reply->set_value(::rmdir(req->path().c_str()));
         return Status::OK;
     }
@@ -54,7 +48,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     Status rm(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
-        cerr_errors(__PRETTY_FUNCTION__);
+        cerr_serv_calls(__PRETTY_FUNCTION__);
         reply->set_value(::remove(req->path().c_str()));
         return Status::OK;
     }
@@ -62,7 +56,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     Status stat(ServerContext* context, const PathNFlag* req
                            , Stat* reply) override
     {
-        cerr_errors(__PRETTY_FUNCTION__);
+        cerr_serv_calls(__PRETTY_FUNCTION__);
         const auto stat = get_stat(req->path().c_str());
         set_time(reply->mutable_atim(), stat.st_atim);
         set_time(reply->mutable_mtim(), stat.st_mtim);
