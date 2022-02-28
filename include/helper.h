@@ -8,6 +8,12 @@ using helloworld::Int;
 using helloworld::Stat;
 using helloworld::PathNFlag;
 
+namespace helloworld {
+    bool operator==(const Time& a, const Time& b) {
+        return a.sec() == b.sec() &&  a.nsec() == b.nsec();
+    }
+}
+
 constexpr bool DISABLE_CERR_ERRORS = false;
 constexpr bool PRINT_SERVER_OUT = true;
 
@@ -41,4 +47,8 @@ void cerr_serv_calls(const T&... args) {
         (std::cerr << ... << args) << '\n';
 }
 
-
+enum class FileStatus: int {
+    FILE_OPEN_ERROR,
+    FILE_ALREADY_CACHED,
+    OK
+};

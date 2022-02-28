@@ -13,6 +13,7 @@
 #include <numeric>
 #include <fstream>
 #include <memory>
+#include "cache_store.h"
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::ClientReader;

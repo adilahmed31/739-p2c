@@ -26,6 +26,8 @@ message Stat {
 }
 
 message File {
+  string path = 4;
+  int32 status = 3;
   Stat stat = 1;
   bytes byte = 2;
 }

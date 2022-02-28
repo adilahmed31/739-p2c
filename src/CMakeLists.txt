@@ -5,7 +5,7 @@ project(project3)
 
 include_directories(../include)
 
-add_executable(client client.cc)
+add_executable(client client.cc cache_store.cc)
 
 target_link_libraries(client 
 	Threads::Threads

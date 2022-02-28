@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <fstream>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -57,73 +58,77 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Stat* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
-        const auto stat = get_stat(req->path().c_str());
-        set_time(reply->mutable_atim(), stat.st_atim);
-        set_time(reply->mutable_mtim(), stat.st_mtim);
-        set_time(reply->mutable_ctim(), stat.st_ctim);
+        set_stat(req->path().c_str(), reply);
+        return Status::OK;
+    }
+
+    Status open(ServerContext* context, const PathNFlag* req, 
+                    ServerWriter<helloworld::File>* writer) override {
+        constexpr int sz = 1 << 16;
+        static thread_local char* buffer = new char[sz];
+
+        const char* path = req->path().c_str();
+
+        int fd = ::open(path, (int)req->flag());
+        FILE* fs = ((fd == -1) ? NULL : fdopen(fd, "r"));
+
+        helloworld::File reply;
+        Stat stat;
+        set_stat(path, &stat);
+        if (stat.mtim() == req->ts()) {
+            reply.set_status((int)FileStatus::FILE_ALREADY_CACHED);
+            writer->Write(reply);
+        } else if (fs == NULL) {
+            reply.set_status((int)FileStatus::FILE_OPEN_ERROR);
+            writer->Write(reply);
+        } else {
+            while (fgets(buffer, sz, fs)) {
+                reply.set_byte(buffer);
+                writer->Write(reply);
+            }
+        }
+        fclose(fs);
+        return Status::OK;
+    }
+
+    Status close(ServerContext* context, ServerReader<
+                  helloworld::File>* reader, Int* reply) {
+        helloworld::File file;
+        reader->Read(&file);
+        const char* path = file.path().c_str();
+        std::ofstream fs(file.path());
+        
+        while (reader->Read(&file)) {
+            fs << file.byte();
+        }
         return Status::OK;
     }
 
 private:
+    static void set_stat(const char* path, Stat* reply) {
+        const auto stat = get_stat(path);
+        set_time(reply->mutable_atim(), stat.st_atim);
+        set_time(reply->mutable_mtim(), stat.st_mtim);
+        set_time(reply->mutable_ctim(), stat.st_ctim);
+        reply->set_size(stat.st_size);
+    }
+
     static void set_time(helloworld::Time* ret, const struct timespec& ts) {
         ret->set_sec(ts.tv_sec);
         ret->set_nsec(ts.tv_nsec);
     }
+
     static struct stat get_stat(const char* path) {
         struct stat st;
         ::stat(path, &st);
         return st;
     }
-
-//    Status SayServerStreamingString(ServerContext* context, const MessageInt* request
-//                                 , ServerWriter< ::helloworld::MessageString>* writer) override
-//    {
-//        MessageString res;
-//        int bytes = request->value();
-//
-//        int packet_size = std::min(65536, bytes);
-//        int timesFull = (bytes / packet_size);
-//        bool timesLeft = (bytes % packet_size) > 0;
-//
-//        std::string packetFull = std::string(packet_size, 'X');
-//        std::string packetLeft = std::string(bytes % packet_size, 'X');
-//
-//        auto start = std::chrono::high_resolution_clock::now();
-//        for (int j = 0; j < timesFull; ++j) {
-//            res.set_value(packetFull);
-//            writer->Write(res);
-//        }
-//        if (timesLeft)
-//        {
-//            res.set_value(packetLeft);
-//            writer->Write(res);
-//        }
-//       // std::cout << "SayServerStreamingInt::Server " << request->value() << std::endl;
-//        return Status::OK;
-//    }
-//    Status SayClientStreamingString(ServerContext* context, ServerReader< MessageString>* reader,
-//                                 MessageInt* response) override
-//    {
-//        // Data we are sending to the server.
-//        MessageString req;
-//        long long int tot = 0;
-//        while(reader->Read(&req))
-//        {
-//            tot += req.value().size();
-//        }
-//        response->set_value(tot);
-//        //std::cout << "SayClientStreamingInt::Server " << tot << std::endl;
-//        return Status::OK;
-//    }
-
+    
 };
 
 void sigintHandler(int sig_num)
 {
     std::cerr << "Clean Shutdown\n";
-    //    if (srv_ptr) {
-    //        delete srv_ptr;
-    //    }
     fflush(stdout);
     std::exit(0);
 }
@@ -151,14 +156,12 @@ void run_server()
     // responsible for shutting down the server for this call to ever return.
     server->Wait();
 }
-#include <sys/stat.h>
 int main()
 {
 
     // "ctrl-C handler"
     signal(SIGINT, sigintHandler);
 
-    struct stat st;
 
     run_server();
 }
