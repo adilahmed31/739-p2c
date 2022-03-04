@@ -1,4 +1,6 @@
 #include "client.h"
+#include <future>
+
 #include <fuse.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -47,6 +49,12 @@ static int do_open(const char* path, struct fuse_file_info* fi) {
     fi->fh = 1;
     return 1;
 }
+
+
+int do_opendir(const char *, struct fuse_file_info *) {
+    return 0;
+}
+
 
 static int do_access(const char* path, int) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
@@ -98,6 +106,20 @@ int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
     return 0;
 }
 
+void test() {
+    usleep(1e6);
+    greeter->c_create("/tmp/a.txt", 0777);
+    print_proto_stat(greeter->c_stat("/tmp/a.txt"));
+
+    std::cerr << "trying to open fuse file /tmp/ab_fuse/a.txt\n";
+    std::ifstream fs("/tmp/ab_fuse/a.txt");
+    if (!fs.good()) std::cerr << "file open failed\n";
+    char buf[100];
+    while (!fs.eof()) {
+        fs.read(buf, sizeof(buf));
+        std::cerr << buf;
+    }
+}
 int main(int argc, char *argv[])
 {
     // "ctrl-C handler"
@@ -114,23 +136,7 @@ int main(int argc, char *argv[])
 
     greeter->c_create("/tmp/a.txt", 0777);
     print_proto_stat(greeter->c_stat("/tmp/a.txt"));
-    /*
-    struct fuse_file_info *fi = new struct fuse_file_info();
-    fi->fh = greeter->c_open("/tmp/a.txt", O_RDWR);
-    //std::string str = "testfilecontents";
-    //char* writebuf = const_cast<char*>(str.c_str());
-    char readbuf[100]; 
-    if (fi->fh <0){
-        std::cout << "Open error!"<<std::endl;
-    }
-    //do_write(NULL,writebuf,sizeof(writebuf),0,fi);
-    int rc = do_read(NULL,readbuf,100, 0,fi);
-    if (rc > 0){
-        std::cout << readbuf <<std::endl;
-    }
-    else
-        std::cout << "Read Error!" << std::endl;
-    */
+    auto tester = std::async(std::launch::async, [&]() { test(); });
     struct fuse_operations operations;
     operations.init = hello_init;
     operations.getattr = do_getattr;
