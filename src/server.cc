@@ -21,7 +21,7 @@ using grpc::Status;
 
 class BasicRPCServiceImpl final : public BasicRPC::Service
 {
-    Status creat(ServerContext* context, const PathNFlag* req
+    Status s_creat(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
@@ -30,7 +30,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         return Status::OK;
     }
 
-    Status mkdir(ServerContext* context, const PathNFlag* req
+    Status s_mkdir(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
@@ -39,7 +39,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         return Status::OK;
     }
 
-    Status rmdir(ServerContext* context, const PathNFlag* req
+    Status s_rmdir(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
@@ -47,7 +47,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         return Status::OK;
     }
 
-    Status rm(ServerContext* context, const PathNFlag* req
+    Status s_rm(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
@@ -72,7 +72,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         return Status::OK;
     }
 
-    Status stat(ServerContext* context, const PathNFlag* req
+    Status s_stat(ServerContext* context, const PathNFlag* req
                            , Stat* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
@@ -80,7 +80,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         return Status::OK;
     }
 
-    Status open(ServerContext* context, const PathNFlag* req, 
+    Status s_open(ServerContext* context, const PathNFlag* req, 
                     ServerWriter<helloworld::File>* writer) override {
         constexpr int sz = 1 << 16;
         static thread_local char* buffer = new char[sz];
@@ -109,8 +109,8 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         return Status::OK;
     }
 
-    Status close(ServerContext* context, ServerReader<
-                  helloworld::File>* reader, Int* reply) {
+    Status s_close(ServerContext* context, ServerReader<
+                  helloworld::File>* reader, Int* reply) override {
         helloworld::File file;
         reader->Read(&file);
         const char* path = file.path().c_str();

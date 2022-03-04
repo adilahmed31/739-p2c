@@ -5,7 +5,7 @@ int BasicRPCClient::c_create(const std::string& path, int flag) {
     call_grpc([&](ClientContext* c, const PathNFlag& f,
             Int* r)
             {
-               return stub_->creat(c, f, r);
+               return stub_->s_creat(c, f, r);
             }, get(path, flag), Int(), 
             __PRETTY_FUNCTION__);
     if (!reply) {
@@ -19,7 +19,7 @@ int BasicRPCClient::c_mkdir(const std::string& path, int flag) {
     call_grpc([&](ClientContext* c, const PathNFlag& f,
             Int* r)
             {
-               return stub_->mkdir(c, f, r);
+               return stub_->s_mkdir(c, f, r);
             }, get(path, flag), Int(), 
             __PRETTY_FUNCTION__);
     if (!reply) {
@@ -33,7 +33,7 @@ int BasicRPCClient::c_rm(const std::string& path, int flag) {
     call_grpc([&](ClientContext* c, const PathNFlag& f,
             Int* r)
             {
-               return stub_->rm(c, f, r);
+               return stub_->s_rm(c, f, r);
             }, get(path, flag), Int(), 
             __PRETTY_FUNCTION__);
     if (!reply) {
@@ -47,7 +47,7 @@ int BasicRPCClient::c_rmdir(const std::string& path, int flag) {
     call_grpc([&](ClientContext* c, const PathNFlag& f,
             Int* r)
             {
-               return stub_->rmdir(c, f, r);
+               return stub_->s_rmdir(c, f, r);
             }, get(path, flag), Int(), 
             __PRETTY_FUNCTION__);
     if (!reply) {
@@ -78,7 +78,7 @@ Stat BasicRPCClient::c_stat(const std::string& path) {
     call_grpc([&](ClientContext* c, const PathNFlag& f,
             RespType* r)
             {
-               return stub_->stat(c, f, r);
+               return stub_->s_stat(c, f, r);
             }, get(path), RespType(), 
             __PRETTY_FUNCTION__);
     if (!reply) {

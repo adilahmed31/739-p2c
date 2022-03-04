@@ -46,13 +46,13 @@ message File {
 }
 
 service BasicRPC {
-  rpc creat (PathNFlag) returns (Int) {}
-  rpc mkdir (PathNFlag) returns (Int) {}
-  rpc rm (PathNFlag) returns (Int) {}
-  rpc rmdir (PathNFlag) returns (Int) {}
-  rpc stat (PathNFlag) returns (Stat) {}
-  rpc open (PathNFlag) returns (stream File) {}
-  rpc close (stream File) returns (Int) {}
+  rpc s_creat (PathNFlag) returns (Int) {}
+  rpc s_mkdir (PathNFlag) returns (Int) {}
+  rpc s_rm (PathNFlag) returns (Int) {}
+  rpc s_rmdir (PathNFlag) returns (Int) {}
+  rpc s_stat (PathNFlag) returns (Stat) {}
+  rpc s_open (PathNFlag) returns (stream File) {}
+  rpc s_close (stream File) returns (Int) {}
   rpc s_readdir (PathNFlag) returns (ReadDirResp) {}
 }
 
