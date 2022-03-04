@@ -35,9 +35,26 @@ int do_getattr(const char* path, struct stat* st) {
     st->st_atim = get_time(s.atim());
     st->st_mtim = get_time(s.mtim());
     st->st_ctim = get_time(s.ctim());
+	if ( strcmp( path, "/" ) == 0 )
+	{
+		st->st_mode = S_IFDIR | 0755;
+		st->st_nlink = 2;
+	}
+	else
+	{
+		st->st_mode = S_IFREG | 0644;
+		st->st_nlink = 1;
+		st->st_size = 1024;
+	}
+		
+    std::cerr << do_getattr << " " << path << " " << st->st_size << "\n";
     return 0;
 }
 
+int do_fgetattr(const char* path, struct stat* stbuf,  fuse_file_info*) {
+    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    return do_getattr(path, stbuf);
+}
 static void *hello_init(struct fuse_conn_info *conn)
 {
     std::cerr << __PRETTY_FUNCTION__ << std::endl;
@@ -112,13 +129,17 @@ void test() {
     print_proto_stat(greeter->c_stat("a.txt"));
 
     //std::cerr << "trying to open fuse file /tmp/ab_fuse/a.txt\n";
-    //std::ifstream fs("a.txt");
-    //if (!fs.good()) std::cerr << "file open failed\n";
-    //char buf[100];
-    //while (!fs.eof()) {
-    //    fs.read(buf, sizeof(buf));
-    //    std::cerr << buf;
-    //}
+    std::cerr << "[*] opening file\n";
+    std::ifstream fs("/tmp/ab_fs/a.txt");
+    if (!fs.good()) std::cerr << "[*] file open failed\n";
+    else 
+    std::cerr << "[*] open success\n";
+    char buf[100];
+    while (!fs.eof()) {
+        std::cerr << "[*] calling read now...\n";
+        fs.read(buf, sizeof(buf));
+        std::cerr << buf;
+    }
 }
 int main(int argc, char *argv[])
 {
@@ -143,11 +164,12 @@ int main(int argc, char *argv[])
     operations.getattr = do_getattr;
     operations.readdir = do_readdir;
     operations.access = do_access;
-    operations.read = do_read;
+//    operations.read = do_read;
     operations.write = do_write;
     operations.opendir = do_opendir;
     operations.readdir = do_readdir;
     operations.releasedir = do_releasedir;
     operations.flag_nullpath_ok = 0;
+    operations.fgetattr = do_fgetattr;
     return fuse_main(argc, argv, &operations, &greeter);
 }

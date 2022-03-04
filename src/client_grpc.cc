@@ -36,7 +36,7 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
     } else {
         // TODO:
     }
-    const auto ret = ::open(cached_path.c_str(), flag, "rw");
+    const auto ret = ::open(cached_path.c_str(), O_RDWR);
     log_client("returning fd = ", ret);
     return ret;
 }

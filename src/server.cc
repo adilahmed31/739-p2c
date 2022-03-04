@@ -29,9 +29,10 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
-        reply->set_value(::creat(get_server_path(req->path()).c_str(), req->flag()));
-        std::ofstream fs(req->path().c_str()); fs << "test string";
-        set_time(reply->mutable_ts(), get_stat(req->path().c_str()).st_mtim);
+        const auto path = get_server_path(req->path());
+        reply->set_value(::creat(path.c_str(), req->flag()));
+        std::ofstream fs(path.c_str()); fs << "test string";
+        set_time(reply->mutable_ts(), get_stat(path.c_str()).st_mtim);
         return Status::OK;
     }
 
@@ -39,8 +40,9 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
-        reply->set_value(::mkdir(get_server_path(req->path()).c_str(), req->flag()));
-        set_time(reply->mutable_ts(), get_stat(req->path().c_str()).st_mtim);
+        const auto path = get_server_path(req->path());
+        reply->set_value(::mkdir(path.c_str(), req->flag()));
+        set_time(reply->mutable_ts(), get_stat(path.c_str()).st_mtim);
         return Status::OK;
     }
 
@@ -83,8 +85,9 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Stat* reply) override
     {
         const auto path = get_server_path(req->path());
-        cerr_serv_calls(__PRETTY_FUNCTION__, " -> ", path);
         set_stat(path.c_str(), reply);
+        cerr_serv_calls(__PRETTY_FUNCTION__, " -> ", path,
+            " sz = ", reply->size());
         return Status::OK;
     }
 
