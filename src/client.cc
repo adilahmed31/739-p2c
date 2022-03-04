@@ -240,13 +240,13 @@ int main(int argc, char *argv[])
     print_proto_stat(greeter->c_stat("/tmp/a.txt"));
     struct fuse_file_info *fi;
     fi->fh = greeter->c_open("/tmp/a.txt", O_RDWR);
-    std::string str = "testfilecontents";
-    char* writebuf = const_cast<char*>(str.c_str());
-    char* readbuf = (char *) calloc(100, sizeof(char));
+    //std::string str = "testfilecontents";
+    //char* writebuf = const_cast<char*>(str.c_str());
+    char readbuf[100]; 
     if (fi->fh <0){
         std::cout << "Open error!"<<std::endl;
     }
-    do_write(NULL,writebuf,sizeof(writebuf),0,fi);
+    //do_write(NULL,writebuf,sizeof(writebuf),0,fi);
     do_read(NULL,readbuf,100, 0,fi);
     std::cout << readbuf <<std::endl;;
     struct fuse_operations operations;
@@ -256,5 +256,6 @@ int main(int argc, char *argv[])
     operations.access = do_access;
     operations.read = do_read;
     operations.write = do_write;
+    
     return fuse_main(argc, argv, &operations, &greeter);
 }
