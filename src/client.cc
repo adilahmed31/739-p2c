@@ -137,6 +137,8 @@ static void *hello_init(struct fuse_conn_info *conn)
 
 static int do_open(const char* path, struct fuse_file_info* fi) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
+    fi->fh = 1;
+    return 1;
 }
 
 static int do_access(const char* path, int) {
@@ -144,6 +146,50 @@ static int do_access(const char* path, int) {
     return 0;
 }
 
+static int do_read(const char* path, char* buf, size_t size, off_t offset, struct  fuse_file_info *fi){
+    int rc = 0;
+
+    rc = read(fi->fh,buf,size);
+    if(rc<0){
+        return -errno;
+    }
+
+    return rc;
+}
+
+static int do_pread(const char* path, char* buf, size_t size, off_t offset, struct  fuse_file_info *fi){
+    int rc = 0;
+
+    rc = pread(fi->fh,buf,size,offset);
+    if(rc<0){
+        return -errno;
+    }
+
+    return rc;
+}
+
+static int do_write(const char* path, char* buf, size_t size, off_t offset, struct  fuse_file_info *fi){
+    int rc = 0;
+
+    rc = write(fi->fh,buf,size);
+    if(rc<0){
+        return -errno;
+    }
+
+    return rc;
+}
+
+static int do_pwrite(const char* path, char* buf, size_t size, off_t offset, struct  fuse_file_info *fi){
+    int rc = 0;
+
+    rc = pwrite(fi->fh,buf,size,offset);
+    if(rc<0){
+        return -errno;
+    }
+
+    return rc;
+}
+static int do_write(
 
 int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
                       off_t offset, struct fuse_file_info* fi) {
@@ -179,6 +225,9 @@ int main(int argc, char *argv[])
     operations.getattr = do_getattr;
     operations.readdir = do_readdir;
     operations.access = do_access;
-
+    operations.read = do_read;
+    operations.write = do_write;
+    operations.pread = do_pread;
+    operations.pwrite = do_pwrite;
     return fuse_main(argc, argv, &operations, &greeter);
 }
