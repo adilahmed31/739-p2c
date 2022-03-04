@@ -19,14 +19,18 @@ using grpc::ServerReaderWriter;
 using grpc::ServerWriter;
 using grpc::Status;
 
+std::string get_server_path(const std::string& path) {
+    return "/users/agabhin/.fuse_server/" + path;
+}
+
 class BasicRPCServiceImpl final : public BasicRPC::Service
 {
     Status s_creat(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
-        reply->set_value(::creat(req->path().c_str(), req->flag()));
-        //std::ofstream fs(req->path().c_str()); fs << "test string";
+        reply->set_value(::creat(get_server_path(req->path()).c_str(), req->flag()));
+        std::ofstream fs(req->path().c_str()); fs << "test string";
         set_time(reply->mutable_ts(), get_stat(req->path().c_str()).st_mtim);
         return Status::OK;
     }
@@ -35,7 +39,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
-        reply->set_value(::mkdir(req->path().c_str(), req->flag()));
+        reply->set_value(::mkdir(get_server_path(req->path()).c_str(), req->flag()));
         set_time(reply->mutable_ts(), get_stat(req->path().c_str()).st_mtim);
         return Status::OK;
     }
@@ -44,7 +48,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
-        reply->set_value(::rmdir(req->path().c_str()));
+        reply->set_value(::rmdir(get_server_path(req->path()).c_str()));
         return Status::OK;
     }
 
@@ -52,7 +56,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
-        reply->set_value(::remove(req->path().c_str()));
+        reply->set_value(::remove(get_server_path(req->path()).c_str()));
         return Status::OK;
     }
 
@@ -61,7 +65,9 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     {
         DIR *dp;
         struct dirent *de;
-        dp = opendir(req->path().c_str());
+        const auto path = get_server_path(req->path());
+        cerr_serv_calls("s_readdir on ", path);
+        dp = opendir(path.c_str());
         if (dp == nullptr) {
             reply->set_ret_code(-errno);
             return Status::OK;
@@ -76,8 +82,9 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     Status s_stat(ServerContext* context, const PathNFlag* req
                            , Stat* reply) override
     {
-        cerr_serv_calls(__PRETTY_FUNCTION__);
-        set_stat(req->path().c_str(), reply);
+        const auto path = get_server_path(req->path());
+        cerr_serv_calls(__PRETTY_FUNCTION__, " -> ", path);
+        set_stat(path.c_str(), reply);
         return Status::OK;
     }
 
@@ -87,13 +94,13 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         constexpr int sz = 1 << 16;
         static thread_local char* buffer = new char[sz];
 
-        const char* path = req->path().c_str();
+        const auto path = get_server_path(req->path());
 
-        std::ifstream fs(req->path());
+        std::ifstream fs(path);
 
         helloworld::File reply;
         Stat stat;
-        set_stat(path, &stat);
+        set_stat(path.c_str(), &stat);
         int status = (int)FileStatus::OK;
         if (stat.mtim() == req->ts()) {
             status = ((int)FileStatus::FILE_ALREADY_CACHED);
@@ -118,8 +125,8 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                   helloworld::File>* reader, Int* reply) override {
         helloworld::File file;
         reader->Read(&file);
-        const char* path = file.path().c_str();
-        std::ofstream fs(file.path());
+        const auto path = get_server_path(file.path());
+        std::ofstream fs(path);
         
         while (reader->Read(&file)) {
             fs << file.byte();
