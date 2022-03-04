@@ -6,7 +6,7 @@ project(project3)
 include_directories(../include)
 include_directories(${FUSE_INCLUDE_DIR})
 
-add_executable(client client.cc cache_store.cc)
+add_executable(client client.cc client_grpc.cc cache_store.cc)
 
 target_link_libraries(client 
 	Threads::Threads
