@@ -100,6 +100,8 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
             reply.set_status((int)FileStatus::FILE_OPEN_ERROR);
             writer->Write(reply);
         } else {
+            reply.set_status((int)FileStatus::OK);
+            writer->Write(reply);
             while (fgets(buffer, sz, fs)) {
                 reply.set_byte(buffer);
                 writer->Write(reply);

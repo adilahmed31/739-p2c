@@ -37,6 +37,13 @@ void cerr_errors(const T&... args) {
         (std::cerr << ... << args) << '\n';
 }
 
+template <class... T>
+void log_client(const T&... args) {
+    if constexpr (!DISABLE_CERR_ERRORS)
+        (std::cerr << ... << args) << '\n';
+}
+
+
 template <class ReplyT>
 void print_server_out(const char* fn, const ReplyT& reply) {
     if constexpr (PRINT_SERVER_OUT)

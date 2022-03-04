@@ -12,6 +12,7 @@ target_link_libraries(client
 	Threads::Threads
        	gRPC::grpc++
     ${FUSE_LIBRARIES}
+    stdc++fs
 	p3protolib)
 add_dependencies(client p3protolib)
 set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/)

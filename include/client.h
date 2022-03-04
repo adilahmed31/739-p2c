@@ -35,7 +35,18 @@ public:
     int c_rmdir(const std::string& path, int flag);
     helloworld::ReadDirResp c_readdir(const std::string& path);
     Stat c_stat(const std::string& path);
+    int c_open(const std::string& path, int flag);
 private:
+    static std::string get_cache_path(const std::string path) {
+        return std::string(CACHE_BASE_PATH) +
+                std::to_string(std::hash<std::string>()(path));
+    }
+
+    static std::string get_tmp_cache_path(const std::string path) {
+        return std::string(CACHE_BASE_PATH) + ".tmp." +
+                 std::to_string(std::hash<std::string>()(path));
+    }
+    static constexpr const char* CACHE_BASE_PATH = "/tmp/fuse_cache/";
     template <class ArgT, class ReplyT, class F>
     std::optional<ReplyT> call_grpc(F&& f, const ArgT& arg, 
                     ReplyT&& ,
