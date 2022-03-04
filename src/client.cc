@@ -46,15 +46,14 @@ static void *hello_init(struct fuse_conn_info *conn)
 
 static int do_open(const char* path, struct fuse_file_info* fi) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
-    fi->fh = 1;
-    return 1;
-}
-
-
-int do_opendir(const char *, struct fuse_file_info *) {
+    fi->fh = greeter->c_open(path, fi->flags);
     return 0;
 }
 
+static int do_create(const char* path, mode_t mode, struct fuse_file_info* fi){
+     std::cerr << __PRETTY_FUNCTION__ << '\n';
+     return greeter->c_create(path, fi->flags);
+}
 
 static int do_access(const char* path, int) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
@@ -62,10 +61,11 @@ static int do_access(const char* path, int) {
 }
 
 static int do_read(const char* path, char* buf, size_t size, off_t offset, struct  fuse_file_info *fi){
-    std::cerr << __PRETTY_FUNCTION__ << '\n';
     int rc = 0;
-
+    std::cerr << __PRETTY_FUNCTION__ << " " << fi->fh <<  " " << size << " " <<  offset << " " << rc<< '\n';
     rc = pread(fi->fh,buf,size,offset);
+    
+    std::cerr << __PRETTY_FUNCTION__ << " " << fi->fh <<  " " << size << " " <<  offset << " " << rc<< '\n';
     if(rc<0){
         return -errno;
     }
@@ -108,17 +108,17 @@ int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
 
 void test() {
     usleep(1e6);
-    greeter->c_create("/tmp/a.txt", 0777);
-    print_proto_stat(greeter->c_stat("/tmp/a.txt"));
+    greeter->c_create("a.txt", 0777);
+    print_proto_stat(greeter->c_stat("a.txt"));
 
-    std::cerr << "trying to open fuse file /tmp/ab_fuse/a.txt\n";
-    std::ifstream fs("/tmp/ab_fuse/a.txt");
-    if (!fs.good()) std::cerr << "file open failed\n";
-    char buf[100];
-    while (!fs.eof()) {
-        fs.read(buf, sizeof(buf));
-        std::cerr << buf;
-    }
+    //std::cerr << "trying to open fuse file /tmp/ab_fuse/a.txt\n";
+    //std::ifstream fs("a.txt");
+    //if (!fs.good()) std::cerr << "file open failed\n";
+    //char buf[100];
+    //while (!fs.eof()) {
+    //    fs.read(buf, sizeof(buf));
+    //    std::cerr << buf;
+    //}
 }
 int main(int argc, char *argv[])
 {
@@ -139,6 +139,7 @@ int main(int argc, char *argv[])
     auto tester = std::async(std::launch::async, [&]() { test(); });
     struct fuse_operations operations;
     operations.init = hello_init;
+    operations.open = do_open;
     operations.getattr = do_getattr;
     operations.readdir = do_readdir;
     operations.access = do_access;
