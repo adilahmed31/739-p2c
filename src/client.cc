@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
 {
     // "ctrl-C handler"
     signal(SIGINT, sigintHandler);
-    const std::string target_str = "localhost:50051";
+    const std::string target_str = "localhost:50052";
     grpc::ChannelArguments ch_args;
 
     ch_args.SetMaxReceiveMessageSize(INT_MAX);
@@ -235,8 +235,17 @@ int main(int argc, char *argv[])
 
     greeter->c_create("/tmp/a.txt", 0777);
     print_proto_stat(greeter->c_stat("/tmp/a.txt"));
-    greeter->c_open("/tmp/a.txt", O_RDWR);
-
+    struct fuse_file_info *fi;
+    fi->fh = greeter->c_open("/tmp/a.txt", O_RDWR);
+    std::string str = "testfilecontents";
+    char* writebuf = const_cast<char*>(str.c_str());
+    char* readbuf = (char *) calloc(100, sizeof(char));
+    if (fi->fh <0){
+        std::cout << "Open error!"<<std::endl;
+    }
+    do_write(NULL,writebuf,sizeof(writebuf),0,fi);
+    do_read(NULL,readbuf,100, 0,fi);
+    std::cout << readbuf <<std::endl;;
     struct fuse_operations operations;
     operations.init = hello_init;
     operations.getattr = do_getattr;
