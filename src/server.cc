@@ -26,6 +26,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
         reply->set_value(::creat(req->path().c_str(), req->flag()));
+        //std::ofstream fs(req->path().c_str()); fs << "test string";
         set_time(reply->mutable_ts(), get_stat(req->path().c_str()).st_mtim);
         return Status::OK;
     }
@@ -93,21 +94,23 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         helloworld::File reply;
         Stat stat;
         set_stat(path, &stat);
+        int status = (int)FileStatus::OK;
         if (stat.mtim() == req->ts()) {
-            reply.set_status((int)FileStatus::FILE_ALREADY_CACHED);
-            writer->Write(reply);
+            status = ((int)FileStatus::FILE_ALREADY_CACHED);
         } else if (!fs.good()) {
-            reply.set_status((int)FileStatus::FILE_OPEN_ERROR);
-            writer->Write(reply);
-        } else {
-            reply.set_status((int)FileStatus::OK);
-            writer->Write(reply);
+            status = ((int)FileStatus::FILE_OPEN_ERROR);
+        }
+
+        std::cerr << "streaming status = " << status << "\n";
+        reply.set_status(status);
+        writer->Write(reply);
+        if (status == (int)FileStatus::OK)
+            std::cerr << "streaming file now\n";
             while (!fs.eof()) {
                 fs.read(buffer, sz);
                 reply.set_byte(buffer);
                 writer->Write(reply);
             }
-        }
         return Status::OK;
     }
 
@@ -164,7 +167,7 @@ void sigintHandler(int sig_num)
 
 void run_server()
 {
-    std::string server_address("localhost:50051");
+    std::string server_address("localhost:" + get_port_from_env());
     BasicRPCServiceImpl service;
     //  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
     ServerBuilder builder;

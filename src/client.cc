@@ -1,5 +1,4 @@
 #include "client.h"
-#include <experimental/filesystem>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -16,13 +15,15 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
                 stub_->s_open(&context, req));
     const auto cached_tmp_path = get_tmp_cache_path(path);
     const auto cached_path = get_cache_path(path);
-    log_client(__PRETTY_FUNCTION__, " ", cached_tmp_path, " => ", cached_path);
     std::ofstream fs(cached_tmp_path, std::ios::binary);
 
     pFile fstream;
     reader->Read(&fstream);
+    log_client(__PRETTY_FUNCTION__, " ", cached_tmp_path, " => ",
+            cached_path, " ", fstream.status());
 
     if (fstream.status() == (int)FileStatus::OK) {
+        std::cerr << "Reading file\n";
         while (reader->Read(&fstream))
             fs << fstream.byte();
         fs.close();
@@ -30,12 +31,14 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
         if (!status.ok()) {
             // TODO: handle gRPC error
         }
-        std::experimental::filesystem::rename(cached_tmp_path,
-                cached_path);
+        auto ret = ::rename(cached_tmp_path.c_str(), cached_path.c_str());
+        std::cerr << "after rename -> "  << ret << " " << errno << "\n";
     } else {
         // TODO:
     }
-    return ::open(cached_path.c_str(), flag, "rw");
+    const auto ret = ::open(cached_path.c_str(), flag, "rw");
+    log_client("returning fd = ", ret);
+    return ret;
 }
 
 int BasicRPCClient::c_create(const std::string& path, int flag) {
@@ -199,7 +202,7 @@ int main(int argc, char *argv[])
 {
     // "ctrl-C handler"
     signal(SIGINT, sigintHandler);
-    const std::string target_str = "localhost:50051";
+    const std::string target_str = "localhost:" + get_port_from_env();
     grpc::ChannelArguments ch_args;
 
     ch_args.SetMaxReceiveMessageSize(INT_MAX);

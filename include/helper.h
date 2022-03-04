@@ -59,7 +59,17 @@ void cerr_serv_calls(const T&... args) {
 }
 
 enum class FileStatus: int {
+    OK = 1,
     FILE_OPEN_ERROR,
     FILE_ALREADY_CACHED,
-    OK
 };
+
+std::string get_port_from_env() {
+    const char* ENV_VAR = "GRPC_PORT";
+    const char* ret = std::getenv(ENV_VAR);
+    if (ret == NULL) {
+        std::cerr <<  ENV_VAR << " env var is not set. aborting\n";
+        std::abort();
+    }
+    return std::string(std::getenv(ENV_VAR));
+}
