@@ -5,6 +5,7 @@
 #include <fcntl.h>
 
 int BasicRPCClient::c_open(const std::string& path, int flag) {
+    std::cerr << __PRETTY_FUNCTION__ << "\n";
     ClientContext context;
     // TODO: send cached file ts here as well !!!
     PathNFlag req;
@@ -254,8 +255,9 @@ int main(int argc, char *argv[])
             grpc::CreateCustomChannel(target_str,
             grpc::InsecureChannelCredentials() , ch_args ));
 
-    greeter->c_create("/tmp/a.txt", 0);
+    greeter->c_create("/tmp/a.txt", 0777);
     print_proto_stat(greeter->c_stat("/tmp/a.txt"));
+    greeter->c_open("/tmp/a.txt", O_RDWR);
 
     struct fuse_operations operations;
     operations.init = hello_init;
