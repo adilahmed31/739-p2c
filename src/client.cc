@@ -1,139 +1,7 @@
 #include "client.h"
-#include <sys/types.h>
+#include <fuse.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-
-int BasicRPCClient::c_open(const std::string& path, int flag) {
-    std::cerr << __PRETTY_FUNCTION__ << "\n";
-    ClientContext context;
-    // TODO: send cached file ts here as well !!!
-    PathNFlag req;
-    req.set_path(path);
-    req.set_flag(flag);
-    using pFile =  helloworld::File;
-    std::unique_ptr <ClientReader<pFile>> reader(
-                stub_->s_open(&context, req));
-    const auto cached_tmp_path = get_tmp_cache_path(path);
-    const auto cached_path = get_cache_path(path);
-    std::ofstream fs(cached_tmp_path, std::ios::binary);
-
-    pFile fstream;
-    reader->Read(&fstream);
-    log_client(__PRETTY_FUNCTION__, " ", cached_tmp_path, " => ",
-            cached_path, " ", fstream.status());
-
-    if (fstream.status() == (int)FileStatus::OK) {
-        std::cerr << "Reading file\n";
-        while (reader->Read(&fstream))
-            fs << fstream.byte();
-        fs.close();
-        Status status = reader->Finish();
-        if (!status.ok()) {
-            // TODO: handle gRPC error
-        }
-        auto ret = ::rename(cached_tmp_path.c_str(), cached_path.c_str());
-        std::cerr << "after rename -> "  << ret << " " << errno << "\n";
-    } else {
-        // TODO:
-    }
-    const auto ret = ::open(cached_path.c_str(), flag, "rw");
-    log_client("returning fd = ", ret);
-    return ret;
-}
-
-int BasicRPCClient::c_create(const std::string& path, int flag) {
-    auto reply = 
-    call_grpc([&](ClientContext* c, const PathNFlag& f,
-            Int* r)
-            {
-               return stub_->s_creat(c, f, r);
-            }, get(path, flag), Int(), 
-            __PRETTY_FUNCTION__);
-    if (!reply) {
-        // some error in grpc
-    }
-    return reply->value();
-}
-
-int BasicRPCClient::c_mkdir(const std::string& path, int flag) {
-    auto reply = 
-    call_grpc([&](ClientContext* c, const PathNFlag& f,
-            Int* r)
-            {
-               return stub_->s_mkdir(c, f, r);
-            }, get(path, flag), Int(), 
-            __PRETTY_FUNCTION__);
-    if (!reply) {
-        // some error in grpc
-    }
-    return reply->value();
-}
-
-int BasicRPCClient::c_rm(const std::string& path, int flag) {
-    auto reply = 
-    call_grpc([&](ClientContext* c, const PathNFlag& f,
-            Int* r)
-            {
-               return stub_->s_rm(c, f, r);
-            }, get(path, flag), Int(), 
-            __PRETTY_FUNCTION__);
-    if (!reply) {
-        // some error in grpc
-    }
-    return reply->value();
-}
-
-int BasicRPCClient::c_rmdir(const std::string& path, int flag) {
-    auto reply = 
-    call_grpc([&](ClientContext* c, const PathNFlag& f,
-            Int* r)
-            {
-               return stub_->s_rmdir(c, f, r);
-            }, get(path, flag), Int(), 
-            __PRETTY_FUNCTION__);
-    if (!reply) {
-        // some error in grpc
-    }
-    return reply->value();
-}
-
-helloworld::ReadDirResp BasicRPCClient::c_readdir(
-                            const std::string& path) {
-    using RespType = helloworld::ReadDirResp;
-    auto reply = 
-    call_grpc([&](ClientContext* c, const PathNFlag& f,
-            RespType* r)
-            {
-               return stub_->s_readdir(c, f, r);
-            }, get(path, 0), RespType(),
-            __PRETTY_FUNCTION__);
-    if (!reply) {
-        // some error in grpc
-    }
-    return *reply;
-}
-
-Stat BasicRPCClient::c_stat(const std::string& path) {
-    using RespType = Stat;
-    auto reply = 
-    call_grpc([&](ClientContext* c, const PathNFlag& f,
-            RespType* r)
-            {
-               return stub_->s_stat(c, f, r);
-            }, get(path), RespType(), 
-            __PRETTY_FUNCTION__);
-    if (!reply) {
-        // some error in grpc
-    }
-    return *reply;
-}
-PathNFlag BasicRPCClient::get(const std::string& path, int flag) {
-
-    PathNFlag pf;
-    pf.set_path(path);
-    pf.set_flag(flag);
-    return pf;
-}
+#include <unistd.h>
 
 void sigintHandler(int sig_num)
 {
@@ -144,9 +12,8 @@ void sigintHandler(int sig_num)
     fflush(stdout);
     std::exit(0);
 }
+
 std::unique_ptr<BasicRPCClient> greeter;
-#include <sys/stat.h>
-#include <unistd.h>
 int do_getattr(const char* path, struct stat* st) {
     const Stat s = greeter->c_stat(path);
     st->st_ino = s.ino();
@@ -168,7 +35,6 @@ int do_getattr(const char* path, struct stat* st) {
     st->st_ctim = get_time(s.ctim());
     return 0;
 }
-#include <fuse.h>
 
 static void *hello_init(struct fuse_conn_info *conn)
 {
@@ -238,15 +104,15 @@ int main(int argc, char *argv[])
 
     greeter->c_create("/tmp/a.txt", 0777);
     print_proto_stat(greeter->c_stat("/tmp/a.txt"));
-    struct fuse_file_info *fi;
+    struct fuse_file_info *fi = new struct fuse_file_info();
     fi->fh = greeter->c_open("/tmp/a.txt", O_RDWR);
-    std::string str = "testfilecontents";
-    char* writebuf = const_cast<char*>(str.c_str());
+    //std::string str = "testfilecontents";
+    //char* writebuf = const_cast<char*>(str.c_str());
     char* readbuf = (char *) calloc(100, sizeof(char));
     if (fi->fh <0){
         std::cout << "Open error!"<<std::endl;
     }
-    do_write(NULL,writebuf,sizeof(writebuf),0,fi);
+    //do_write(NULL,writebuf,sizeof(writebuf),0,fi);
     do_read(NULL,readbuf,100, 0,fi);
     std::cout << readbuf <<std::endl;;
     struct fuse_operations operations;

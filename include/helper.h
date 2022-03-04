@@ -12,7 +12,7 @@ using helloworld::Stat;
 using helloworld::PathNFlag;
 
 namespace helloworld {
-    bool operator==(const Time& a, const Time& b) {
+    inline bool operator==(const Time& a, const Time& b) {
         return a.sec() == b.sec() &&  a.nsec() == b.nsec();
     }
 }
@@ -20,10 +20,10 @@ namespace helloworld {
 constexpr bool DISABLE_CERR_ERRORS = false;
 constexpr bool PRINT_SERVER_OUT = true;
 
-void print_ts(const helloworld::Time& ts) {
+inline void print_ts(const helloworld::Time& ts) {
     std::cerr << "[" << ts.sec() << "." << ts.nsec() << "] ";
 }
-void print_proto_stat(const Stat& st) {
+inline void print_proto_stat(const Stat& st) {
     std::cerr << "ts: ";
     print_ts(st.atim());
     print_ts(st.mtim());
@@ -32,20 +32,20 @@ void print_proto_stat(const Stat& st) {
 }
 
 template <class... T>
-void cerr_errors(const T&... args) {
+inline void cerr_errors(const T&... args) {
     if constexpr (!DISABLE_CERR_ERRORS)
         (std::cerr << ... << args) << '\n';
 }
 
 template <class... T>
-void log_client(const T&... args) {
+inline void log_client(const T&... args) {
     if constexpr (!DISABLE_CERR_ERRORS)
         (std::cerr << ... << args) << '\n';
 }
 
 
 template <class ReplyT>
-void print_server_out(const char* fn, const ReplyT& reply) {
+inline void print_server_out(const char* fn, const ReplyT& reply) {
     if constexpr (PRINT_SERVER_OUT)
         (std::cerr << fn << " -> " << reply.get_value() << "\n");
 }
@@ -53,7 +53,7 @@ void print_server_out(const char* fn, const ReplyT& reply) {
 constexpr bool CERR_SERVER_CALLS = true;
 
 template <class... T>
-void cerr_serv_calls(const T&... args) {
+inline void cerr_serv_calls(const T&... args) {
     if constexpr (CERR_SERVER_CALLS)
         (std::cerr << ... << args) << '\n';
 }
@@ -64,7 +64,7 @@ enum class FileStatus: int {
     FILE_ALREADY_CACHED,
 };
 
-std::string get_port_from_env() {
+inline std::string get_port_from_env() {
     const char* ENV_VAR = "GRPC_PORT";
     const char* ret = std::getenv(ENV_VAR);
     if (ret == NULL) {
