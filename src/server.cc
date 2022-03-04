@@ -82,13 +82,13 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
 
     Status s_open(ServerContext* context, const PathNFlag* req, 
                     ServerWriter<helloworld::File>* writer) override {
+        cerr_serv_calls(__PRETTY_FUNCTION__);
         constexpr int sz = 1 << 16;
         static thread_local char* buffer = new char[sz];
 
         const char* path = req->path().c_str();
 
-        int fd = ::open(path, (int)req->flag());
-        FILE* fs = ((fd == -1) ? NULL : fdopen(fd, "r"));
+        std::ifstream fs(req->path());
 
         helloworld::File reply;
         Stat stat;
@@ -96,18 +96,18 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         if (stat.mtim() == req->ts()) {
             reply.set_status((int)FileStatus::FILE_ALREADY_CACHED);
             writer->Write(reply);
-        } else if (fs == NULL) {
+        } else if (!fs.good()) {
             reply.set_status((int)FileStatus::FILE_OPEN_ERROR);
             writer->Write(reply);
         } else {
             reply.set_status((int)FileStatus::OK);
             writer->Write(reply);
-            while (fgets(buffer, sz, fs)) {
+            while (!fs.eof()) {
+                fs.read(buffer, sz);
                 reply.set_byte(buffer);
                 writer->Write(reply);
             }
         }
-        fclose(fs);
         return Status::OK;
     }
 
