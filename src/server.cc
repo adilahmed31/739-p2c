@@ -26,7 +26,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
         reply->set_value(::creat(req->path().c_str(), req->flag()));
-        //std::ofstream fs(req->path().c_str()); fs << "test string";
+        std::ofstream fs(req->path().c_str()); fs << "test string";
         set_time(reply->mutable_ts(), get_stat(req->path().c_str()).st_mtim);
         return Status::OK;
     }
