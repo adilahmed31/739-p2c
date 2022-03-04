@@ -15,6 +15,7 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
                 stub_->s_open(&context, req));
     const auto cached_tmp_path = get_tmp_cache_path(path);
     const auto cached_path = get_cache_path(path);
+    log_client(__PRETTY_FUNCTION__, " ", cached_tmp_path, " => ", cached_path);
     std::ofstream fs(cached_tmp_path, std::ios::binary);
 
     pFile fstream;

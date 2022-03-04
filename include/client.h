@@ -43,7 +43,8 @@ private:
     }
 
     static std::string get_tmp_cache_path(const std::string path) {
-        return ".tmp." +  get_cache_path(path);
+        return std::string(CACHE_BASE_PATH) + ".tmp." +
+                 std::to_string(std::hash<std::string>()(path));
     }
     static constexpr const char* CACHE_BASE_PATH = "/tmp/fuse_cache/";
     template <class ArgT, class ReplyT, class F>
