@@ -1,4 +1,7 @@
 #pragma once
+#define _FILE_OFFSET_BITS 64
+#define FUSE_USE_VERSION 35
+
 
 #include "helloworld.grpc.pb.h"
 
@@ -25,6 +28,7 @@ void print_proto_stat(const Stat& st) {
     print_ts(st.atim());
     print_ts(st.mtim());
     print_ts(st.ctim());
+    std::cerr << " " << st.blocks() << "\n";
 }
 
 template <class... T>

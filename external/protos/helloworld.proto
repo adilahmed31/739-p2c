@@ -18,11 +18,24 @@ message Time {
   uint64 nsec = 2;
 }
 
+message ReadDirResp {
+  int32 ret_code = 1;
+  repeated string names = 2;
+}
+
 message Stat {
   Time atim = 1;
   Time mtim = 2;
   Time ctim = 3;
   uint64 size = 4;
+
+  uint64 ino = 5;   /* Inode number */
+  uint64 mode = 6;  /* File type and mode */
+  uint64 nlink = 7; /* Number of hard links */
+  uint64 uid = 8;   /* User ID of owner */
+  uint64 gid = 9;   /* Group ID of owner */
+  uint64 rdev = 10;  /* Device ID (if special file) */
+  int64 blocks = 11; /* Number of 512B blocks allocated */
 }
 
 message File {
@@ -40,5 +53,6 @@ service BasicRPC {
   rpc stat (PathNFlag) returns (Stat) {}
   rpc open (PathNFlag) returns (stream File) {}
   rpc close (stream File) returns (Int) {}
+  rpc s_readdir (PathNFlag) returns (ReadDirResp) {}
 }
 

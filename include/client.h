@@ -1,5 +1,6 @@
 #pragma once
 
+#define FUSE_USE_VERSION 35
 #include "helloworld.grpc.pb.h"
 #include "helper.h"
 
@@ -32,6 +33,7 @@ public:
     int c_mkdir(const std::string& path, int flag);
     int c_rm(const std::string& path, int flag);
     int c_rmdir(const std::string& path, int flag);
+    helloworld::ReadDirResp c_readdir(const std::string& path);
     Stat c_stat(const std::string& path);
 private:
     template <class ArgT, class ReplyT, class F>

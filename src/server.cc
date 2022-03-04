@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <fstream>
+#include <dirent.h>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -51,6 +52,23 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
         reply->set_value(::remove(req->path().c_str()));
+        return Status::OK;
+    }
+
+    Status s_readdir(ServerContext* context, const PathNFlag* req
+                           , helloworld::ReadDirResp* reply) override
+    {
+        DIR *dp;
+        struct dirent *de;
+        dp = opendir(req->path().c_str());
+        if (dp == nullptr) {
+            reply->set_ret_code(-errno);
+            return Status::OK;
+        }
+        while ((de = readdir(dp)) != nullptr) {
+            reply->add_names(de->d_name);
+        }
+        closedir(dp);
         return Status::OK;
     }
 
@@ -111,6 +129,15 @@ private:
         set_time(reply->mutable_mtim(), stat.st_mtim);
         set_time(reply->mutable_ctim(), stat.st_ctim);
         reply->set_size(stat.st_size);
+
+        reply->set_ino(stat.st_ino);
+        reply->set_mode(stat.st_mode);
+        reply->set_nlink(stat.st_nlink);
+        reply->set_uid(stat.st_uid);
+        reply->set_gid(stat.st_gid);
+        reply->set_rdev(stat.st_rdev);
+        reply->set_size(stat.st_size);
+        reply->set_blocks(stat.st_blocks);
     }
 
     static void set_time(helloworld::Time* ret, const struct timespec& ts) {
