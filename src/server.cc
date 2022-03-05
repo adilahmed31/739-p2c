@@ -120,7 +120,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         reply->set_size(stat.size());
         reply->set_status(status);
         return Status::OK;
-}
+    }
     
     Status s_open(ServerContext* context, const PathNFlag* req, 
                     ServerWriter<helloworld::File>* writer) override {

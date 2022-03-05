@@ -19,6 +19,7 @@ int BasicRPCClient::c_release(const std::string& path, int flag){
     std::unique_ptr<ClientWriter<helloworld::File>> writer(
                     stub_->s_release(&context, &result) );
     file.set_path(path);  
+    writer->Write(file);    
     std::ifstream fs(cached_path.c_str());
     while (!fs.eof()) {
         fs.read(buffer, sz);
