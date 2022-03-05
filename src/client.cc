@@ -123,24 +123,27 @@ int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
     return 0;
 }
 
+
 void test() {
     usleep(1e6);
     greeter->c_create("a.txt", 0777);
     print_proto_stat(greeter->c_stat("a.txt"));
 
     //std::cerr << "trying to open fuse file /tmp/ab_fuse/a.txt\n";
-    std::cerr << "[*] opening file\n";
-    std::ifstream fs("/tmp/ab_fs/a.txt");
-    if (!fs.good()) std::cerr << "[*] file open failed\n";
-    else 
-    std::cerr << "[*] open success\n";
-    char buf[100];
-    while (!fs.eof()) {
-        std::cerr << "[*] calling read now...\n";
-        fs.read(buf, sizeof(buf));
-        std::cerr << buf;
-    }
+//    std::cerr << "[*] opening file\n";
+//    FILE* fi = fopen("/tmp/ab_fs/a.txt", "r");
+//    int fd = fileno(fi);
+//    std::cerr << "fd is " << fd << "\n";
+//    char filePath[PATH_MAX];
+//    if (fcntl(fd, F_GETPATH, filePath) != -1)
+//        std::cerr << "path for the file is : " << filePath << "\n";
+
+//    char buf[100];
+//    std::cerr << "[*] calling read now...\n";
+//    const int sz = read(fd, buf, sizeof(buf));
+//    std::cerr << buf;
 }
+static struct fuse_operations operations;
 int main(int argc, char *argv[])
 {
     // "ctrl-C handler"
@@ -155,21 +158,17 @@ int main(int argc, char *argv[])
             grpc::CreateCustomChannel(target_str,
             grpc::InsecureChannelCredentials() , ch_args ));
 
-    greeter->c_create("/tmp/a.txt", 0777);
-    print_proto_stat(greeter->c_stat("/tmp/a.txt"));
     auto tester = std::async(std::launch::async, [&]() { test(); });
-    struct fuse_operations operations;
     operations.init = hello_init;
     operations.open = do_open;
     operations.getattr = do_getattr;
     operations.readdir = do_readdir;
-    operations.access = do_access;
-//    operations.read = do_read;
+//    operations.access = do_access;
+    operations.read = do_read;
     operations.write = do_write;
     operations.opendir = do_opendir;
     operations.readdir = do_readdir;
     operations.releasedir = do_releasedir;
-    operations.flag_nullpath_ok = 0;
     operations.fgetattr = do_fgetattr;
     return fuse_main(argc, argv, &operations, &greeter);
 }
