@@ -51,6 +51,13 @@ int do_getattr(const char* path, struct stat* st) {
     return 0;
 }
 
+int do_fetch(const char* path, struct fuse_file_info *fi){
+    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    fi->fh = greeter->c_fetch(path,fi->flags);
+    return 0;
+}
+
+
 int do_fgetattr(const char* path, struct stat* stbuf,  fuse_file_info*) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
     return do_getattr(path, stbuf);
@@ -155,16 +162,16 @@ int main(int argc, char *argv[])
             grpc::CreateCustomChannel(target_str,
             grpc::InsecureChannelCredentials() , ch_args ));
 
-    greeter->c_create("/tmp/a.txt", 0777);
-    print_proto_stat(greeter->c_stat("/tmp/a.txt"));
-    auto tester = std::async(std::launch::async, [&]() { test(); });
+//    greeter->c_create("/tmp/a.txt", 0777);
+  //  print_proto_stat(greeter->c_stat("/tmp/a.txt"));
+    //auto tester = std::async(std::launch::async, [&]() { test(); });
     struct fuse_operations operations;
     operations.init = hello_init;
     operations.open = do_open;
     operations.getattr = do_getattr;
     operations.readdir = do_readdir;
     operations.access = do_access;
-//    operations.read = do_read;
+    operations.read = do_read;
     operations.write = do_write;
     operations.opendir = do_opendir;
     operations.readdir = do_readdir;

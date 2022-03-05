@@ -3,6 +3,41 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+
+int BasicRPCClient::c_fetch(const std::string& path, int flag){
+    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    int fd;
+    
+    const auto cached_path = get_cache_path(path);
+    
+    char* cache_path = const_cast<char*>(cached_path.c_str());
+    auto reply = 
+    call_grpc([&](ClientContext* c, const PathNFlag& f,
+            File* r)
+            {
+               return stub_->s_fetch(c, f, r);
+            }, get(path, flag), File(), 
+            __PRETTY_FUNCTION__);
+    if (!reply) {
+        // some error in grpc
+    }
+    if (reply->status() == (int)FileStatus::OK){
+        fd = ::creat(cache_path,0);
+        lseek(fd, 0, SEEK_SET);
+        int size = (int)(reply->size()); 
+        std::cerr << reply->byte()<< "  " <<size <<'\n';
+        write(fd, &(reply->byte()), size);
+        return fd;
+    } 
+    else{
+        fd = ::open(cache_path, O_RDWR, 0);
+        return fd;
+
+}
+}
+
+    
+    
 int BasicRPCClient::c_open(const std::string& path, int flag) {
     std::cerr << __PRETTY_FUNCTION__ << "\n";
     ClientContext context;
