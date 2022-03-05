@@ -39,6 +39,7 @@ int BasicRPCClient::c_fetch(const std::string& path, int flag){
     
     
 int BasicRPCClient::c_open(const std::string& path, int flag) {
+    flag = 0777;
     std::cerr << __PRETTY_FUNCTION__ << "\n";
     ClientContext context;
     // TODO: send cached file ts here as well !!!
@@ -72,7 +73,9 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
         // TODO:
     }
     const auto ret = ::open(cached_path.c_str(), O_RDWR);
-    log_client("returning fd = ", ret);
+    char buf[100];
+    readlink((std::string("/proc/self/fd/") + std::to_string(ret)).c_str() , buf, sizeof(buf));
+    log_client("returning fd = ", ret, " -> ", buf);
     return ret;
 }
 
