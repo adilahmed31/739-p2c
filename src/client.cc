@@ -62,10 +62,16 @@ int do_fgetattr(const char* path, struct stat* stbuf,  fuse_file_info*) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
     return do_getattr(path, stbuf);
 }
+
 static void *hello_init(struct fuse_conn_info *conn)
 {
     std::cerr << __PRETTY_FUNCTION__ << std::endl;
 	return NULL;
+}
+
+static int do_release(const char* path, struct fuse_file_info* fi){
+    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    return greeter->c_release(path, fi->flags);
 }
 
 static int do_open(const char* path, struct fuse_file_info* fi) {
@@ -79,9 +85,10 @@ static int do_create(const char* path, mode_t mode, struct fuse_file_info* fi){
      return greeter->c_create(path, fi->flags);
 }
 
-static int do_access(const char* path, int) {
+static int do_access(const char* path, int flag) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
-    return 0;
+    
+    return greeter->c_access(path,flag);
 }
 
 static int do_read(const char* path, char* buf, size_t size, off_t offset, struct  fuse_file_info *fi){
@@ -130,6 +137,17 @@ int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
     return 0;
 }
 
+static int do_unlink(const char* path){
+    return greeter->c_rm(path,0);
+}
+
+static int do_rmdir(const char* path){
+    return greeter->c_rmdir(path,0);
+}
+
+static int do_mkdir(const char* path, mode_t mode){
+    return greeter->c_mkdir(path, 0777);
+}
 
 void test() {
     usleep(1e6);
@@ -172,12 +190,16 @@ int main(int argc, char *argv[])
     operations.open = do_open;
     operations.getattr = do_getattr;
     operations.readdir = do_readdir;
-//    operations.access = do_access;
     operations.read = do_read;
     operations.write = do_write;
     operations.opendir = do_opendir;
     operations.readdir = do_readdir;
+    operations.release = do_release;
     operations.releasedir = do_releasedir;
+    operations.rmdir = do_rmdir;
+    operations.mkdir = do_mkdir;
+    operations.unlink = do_unlink;
     operations.fgetattr = do_fgetattr;
+    operations.access = do_access;
     return fuse_main(argc, argv, &operations, &greeter);
 }

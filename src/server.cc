@@ -41,7 +41,16 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
         const auto path = get_server_path(req->path());
-        reply->set_value(::mkdir(path.c_str(), req->flag()));
+        int res = ::mkdir(path.c_str(),req->flag());
+        reply->set_value(res);
+        if (res == -1){
+            //perror(strerror(errno));
+            reply->set_value(-errno);
+        }
+        else{
+            reply->set_value(0);
+        }
+        
         set_time(reply->mutable_ts(), get_stat(path.c_str()).st_mtim);
         return Status::OK;
     }
@@ -90,7 +99,29 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
             " sz = ", reply->size());
         return Status::OK;
     }
-
+    
+    Status s_fetch(ServerContext* context, const PathNFlag* request, File* reply) override {
+        int fd;
+        Stat stat;
+        const auto path = get_server_path(request->path());
+        char* c_path = const_cast<char*>(path.c_str());
+        set_stat(path.c_str(), &stat);
+        int status = (int)FileStatus :: OK;
+        if (stat.mtim() == request->ts()){
+               status = ((int)FileStatus::FILE_ALREADY_CACHED);
+        }
+        if (status == (int)FileStatus::OK){
+            int fd = open(path.c_str(), O_RDWR);
+            char* buf = (char*)malloc(stat.size());
+            ::lseek(fd,0,SEEK_SET);
+            ::read(fd, buf, stat.size());
+            reply->set_byte(buf);
+        }   
+        reply->set_size(stat.size());
+        reply->set_status(status);
+        return Status::OK;
+}
+    
     Status s_open(ServerContext* context, const PathNFlag* req, 
                     ServerWriter<helloworld::File>* writer) override {
         cerr_serv_calls(__PRETTY_FUNCTION__);
@@ -100,7 +131,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         const auto path = get_server_path(req->path());
 
         std::ifstream fs(path);
-
+        
         helloworld::File reply;
         Stat stat;
         set_stat(path.c_str(), &stat);
@@ -124,8 +155,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         return Status::OK;
     }
 
-    Status s_close(ServerContext* context, ServerReader<
-                  helloworld::File>* reader, Int* reply) override {
+    Status s_release(ServerContext* context, ServerReader<helloworld::File>* reader, Int* reply) override {
         helloworld::File file;
         reader->Read(&file);
         const auto path = get_server_path(file.path());
@@ -134,16 +164,26 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         while (reader->Read(&file)) {
             fs << file.byte();
         }
+        fs.close();
         return Status::OK;
     }
-
+    
+    Status s_access(ServerContext* context, const PathNFlag* req, Int* reply) override {
+        int res = ::access(req->path().c_str(),req->flag());
+        if (res == -1){
+            reply->set_value(-errno);
+        }
+        else{
+            reply->set_value(0);
+        }
+        return Status::OK;
+}
 private:
     static void set_stat(const char* path, Stat* reply) {
         const auto stat = get_stat(path);
         set_time(reply->mutable_atim(), stat.st_atim);
         set_time(reply->mutable_mtim(), stat.st_mtim);
         set_time(reply->mutable_ctim(), stat.st_ctim);
-        reply->set_size(stat.st_size);
 
         reply->set_ino(stat.st_ino);
         reply->set_mode(stat.st_mode);

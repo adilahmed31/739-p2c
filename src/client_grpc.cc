@@ -3,7 +3,36 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-
+int BasicRPCClient::c_release(const std::string& path, int flag){
+    flag = 0777;
+    std::cerr << __PRETTY_FUNCTION__ << "\n";
+    ClientContext context;
+    helloworld::File file;
+    
+    helloworld::Int result;
+    
+    constexpr int sz = 1 << 16;
+    static thread_local char* buffer = new char[sz];
+    //const auto cached_tmp_path = get_tmp_cache_path(path);
+    const auto cached_path = get_cache_path(path); 
+    std::cout << "Client: file transfer " << path << " " << cached_path <<std::endl;
+    std::unique_ptr<ClientWriter<helloworld::File>> writer(
+                    stub_->s_release(&context, &result) );
+    file.set_path(path);  
+    std::ifstream fs(cached_path.c_str());
+    while (!fs.eof()) {
+        fs.read(buffer, sz);
+        file.set_byte(buffer);
+        writer->Write(file);    
+    }
+    fs.close();
+    //if(!reply){
+        //grpc error
+    //}
+    return 0;
+}
+    
+   
 int BasicRPCClient::c_fetch(const std::string& path, int flag){
     std::cerr << __PRETTY_FUNCTION__ << '\n';
     int fd;
@@ -42,35 +71,34 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
     flag = 0777;
     std::cerr << __PRETTY_FUNCTION__ << "\n";
     ClientContext context;
-    // TODO: send cached file ts here as well !!!
-    PathNFlag req;
+    // todo: send cached file ts here as well !!!
+    helloworld::PathNFlag req;
     req.set_path(path);
     req.set_flag(flag);
-    using pFile =  helloworld::File;
-    std::unique_ptr <ClientReader<pFile>> reader(
+    using pfile =  helloworld::File;
+    std::unique_ptr <ClientReader<pfile>> reader(
                 stub_->s_open(&context, req));
     const auto cached_tmp_path = get_tmp_cache_path(path);
     const auto cached_path = get_cache_path(path);
     std::ofstream fs(cached_tmp_path, std::ios::binary);
-
-    pFile fstream;
+    pfile fstream;
     reader->Read(&fstream);
     log_client(__PRETTY_FUNCTION__, " ", cached_tmp_path, " => ",
             cached_path, " ", fstream.status());
 
     if (fstream.status() == (int)FileStatus::OK) {
-        std::cerr << "Reading file\n";
+        std::cerr << "reading file\n";
         while (reader->Read(&fstream))
             fs << fstream.byte();
         fs.close();
         Status status = reader->Finish();
         if (!status.ok()) {
-            // TODO: handle gRPC error
+            // todo: handle grpc error
         }
         auto ret = ::rename(cached_tmp_path.c_str(), cached_path.c_str());
         std::cerr << "after rename -> "  << ret << " " << errno << "\n";
     } else {
-        // TODO:
+        //todo
     }
     const auto ret = ::open(cached_path.c_str(), O_RDWR);
     char buf[100];
@@ -101,9 +129,20 @@ int BasicRPCClient::c_mkdir(const std::string& path, int flag) {
                return stub_->s_mkdir(c, f, r);
             }, get(path, flag), Int(), 
             __PRETTY_FUNCTION__);
+    if (reply->value() != 0)
+        std::cerr <<"Directory could not be created!. Error code: " << reply->value() << "\n";
     if (!reply) {
         // some error in grpc
     }
+    return reply->value();
+}
+
+int BasicRPCClient::c_access(const std::string& path, int flag){
+    auto reply = 
+    call_grpc([&](ClientContext* c, const PathNFlag& f, Int* r){
+        return stub_->s_access(c,f,r);
+    }, get(path, flag), Int(), 
+    __PRETTY_FUNCTION__);
     return reply->value();
 }
 
