@@ -15,6 +15,20 @@ void sigintHandler(int sig_num)
     std::exit(0);
 }
 
+template <class T>
+auto get_time(const T& t) {
+    struct timespec ret;
+    ret.tv_nsec = 0;
+    if constexpr (std::is_same_v<T, uint64_t>) {
+        ret.tv_sec = t;
+    } else {
+        ret.tv_sec = t.sec();
+        ret.tv_nsec = t.nsec();
+    }
+    return ret;
+}
+
+
 std::unique_ptr<BasicRPCClient> greeter;
 int do_getattr(const char* path, struct stat* st) {
     const Stat s = greeter->c_stat(path);
@@ -26,27 +40,8 @@ int do_getattr(const char* path, struct stat* st) {
     st->st_rdev = s.rdev();
     st->st_size = s.size();
     st->st_blocks = s.blocks();
-    auto get_time = [&](const helloworld::Time& t) {
-        struct timespec ret;
-        ret.tv_sec = t.sec();
-        ret.tv_nsec = t.nsec();
-        return ret;
-    };
     st->st_atim = get_time(s.atim());
     st->st_mtim = get_time(s.mtim());
-//    st->st_ctim = get_time(s.ctim());
-//	if ( strcmp( path, "/" ) == 0 )
-//	{
-//		st->st_mode = S_IFDIR | 0755;
-//		st->st_nlink = 2;
-//	}
-//	else
-//	{
-//		st->st_mode = S_IFREG | 0644;
-//		st->st_nlink = 1;
-//		st->st_size = 1024;
-//	}
-    //std::cerr << "[*] set mode for " << path << " is " << st->st_mode << "\n";
 		
     return s.error();
 }
@@ -146,16 +141,16 @@ void test() {
     usleep(1e6);
     const char* fname = "/tmp/ab_fs/b.txt";
     int fd = ::open(fname, O_CREAT| O_RDWR);
-    std::cerr << "open w fd:"  << fd << "\n";
-    ::write(fd, fname, strlen(fname));
-    ::close(fd);
-    // O_APPEND
-    std::cerr << "reopening file for append mode now\n";
-    fd = ::open(fname, O_RDWR);
+//    std::cerr << "open w fd:"  << fd << "\n";
 //    ::write(fd, fname, strlen(fname));
-//    ::write(fd, fname, strlen(fname));
-    ::pwrite(fd, "ABH", 3, 0);
     ::close(fd);
+//    // O_APPEND
+//    std::cerr << "reopening file for append mode now\n";
+//    fd = ::open(fname, O_RDWR);
+////    ::write(fd, fname, strlen(fname));
+////    ::write(fd, fname, strlen(fname));
+//    ::pwrite(fd, "ABH", 3, 0);
+//    ::close(fd);
 //    greeter->c_create("a.txt", 0777);
 //    print_proto_stat(greeter->c_stat("a.txt"));
 

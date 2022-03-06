@@ -4,13 +4,13 @@ package helloworld;
 
 message Int {
   int32 value = 1;
-  Time ts = 2;
+  uint64 ts = 2;
 }
 
 message PathNFlag {
   string path = 1;
   int32 flag = 2;
-  Time ts = 3;
+  uint64 ts = 3;
 }
 
 message Time {
@@ -26,7 +26,7 @@ message ReadDirResp {
 message Stat {
   int32 error = 12;
   Time atim = 1;
-  Time mtim = 2;
+  uint64 mtim = 2;
   Time ctim = 3;
   uint64 size = 4;
 
@@ -45,6 +45,7 @@ message File {
   Stat stat = 1;
   bytes byte = 2;
   int32 error = 5;
+  uint64 mtim = 6;
 }
 
 service BasicRPC {

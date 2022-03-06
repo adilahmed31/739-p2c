@@ -4,6 +4,9 @@
 
 
 #include "helloworld.grpc.pb.h"
+#include <utime.h>
+#include <sys/stat.h>
+
 
 
 using helloworld::BasicRPC;
@@ -20,9 +23,27 @@ namespace helloworld {
 constexpr bool DISABLE_CERR_ERRORS = false;
 constexpr bool PRINT_SERVER_OUT = true;
 
+inline std::pair<int, std::string> get_tmp_file() {
+    char templat[100];
+    strcpy(templat, "/tmp/afs_tmp_fileXXXXXX");
+    const int fd = mkstemp(templat);
+    return {fd, std::string(templat)};
+}
+
+static uint64_t get_mod_ts(const char* path) {
+    struct stat st;
+    const int ret = ::stat(path, &st);
+    if (ret < 0) st.st_mtim.tv_sec = 0;
+    return st.st_mtim.tv_sec;
+}
+
 inline void print_ts(const helloworld::Time& ts) {
     std::cerr << "[" << ts.sec() << "." << ts.nsec() << "] ";
 }
+inline void print_ts(const uint64_t ts) {
+    std::cerr << "[" << ts << "]\n";
+}
+
 inline void print_proto_stat(const Stat& st) {
     std::cerr << "ts: ";
     print_ts(st.atim());

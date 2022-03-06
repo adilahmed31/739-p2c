@@ -16,6 +16,7 @@ void BasicRPCClient::c_release(const char* path, int fd) {
             stub_->s_close(&context, &reply));
 
     out.set_path(path);
+    out.set_mtim(get_mod_ts(get_cache_path(path).c_str()));
     writer->Write(out);
 
     ::lseek(fd, 0, SEEK_SET);
@@ -29,7 +30,9 @@ void BasicRPCClient::c_release(const char* path, int fd) {
         writer->Write(out);
         std::cerr << n << " -> " << std::string(buf, n);
     }
-    std::cerr << "[close] streamed: " << tot_sent << " bytes\n";
+    std::cerr << "[close] streamed: " << tot_sent
+            << " path = " << get_cache_path(path)
+            << " bytes, mod = " << out.mtim() << "\n"; 
     writer->WritesDone();
     Status status = writer->Finish();
 
@@ -49,18 +52,24 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
     PathNFlag req;
     req.set_path(path);
     req.set_flag(flag);
+    const auto cached_path = get_cache_path(path);
+    req.set_ts(get_mod_ts(cached_path.c_str()));
+    std::cerr << "[*] mod ts of: " << cached_path << " " << req.ts() << "\n";
     using pFile =  helloworld::File;
     std::unique_ptr<ClientReader<pFile>> reader(
                 stub_->s_open(&context, req));
     const auto cached_tmp_path = get_tmp_cache_path(path);
-    const auto cached_path = get_cache_path(path);
     std::ofstream fs(cached_tmp_path, std::ios::binary);
 
     pFile fstream;
     reader->Read(&fstream);
+    struct utimbuf new_ts;
+    new_ts.modtime = fstream.mtim();
+
     if (fstream.error()) return fstream.error();
     log_client(__PRETTY_FUNCTION__, " ", cached_tmp_path, " => ",
-            cached_path, " ", fstream.status());
+            cached_path, " ", fstream.status(), " mod ts from serv:" 
+            ,fstream.mtim());
 
     if (fstream.status() == (int)FileStatus::OK) {
         std::cerr << "Reading file\n";
@@ -73,13 +82,15 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
         if (!status.ok()) {
             return -ENOENT;
         }
+        ::utime(cached_tmp_path.c_str(), &new_ts);
         auto ret = ::rename(cached_tmp_path.c_str(), cached_path.c_str());
+        ::utime(cached_path.c_str(), &new_ts);
         std::cerr << "after rename -> "  << ret << " " << errno << "\n";
     } else if (fstream.status() == (int)FileStatus::FILE_OPEN_ERROR) {
         std::cerr << "file doesn't exists " << path << "\n";
         return -ENOENT;
     } else {
-        log_client("file already cached on client: ", path);
+        log_client("[*] file already cached on client: ", path);
     }
     const auto ret = ::open(cached_path.c_str(), O_RDWR);
 //    char buf[100];

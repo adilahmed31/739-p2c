@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <fstream>
 #include <dirent.h>
+#include <utime.h>
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -49,7 +50,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
    //     std::ofstream fs(path.c_str()); fs << "test string";
         struct stat  st ;
         const int ret = get_stat(path.c_str(), st);
-        set_time(reply->mutable_ts(), st.st_mtim);
+        reply->set_ts(st.st_mtim.tv_sec);
         return Status::OK;
     }
 
@@ -63,7 +64,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         }
         struct stat  st ;
         const int ret = get_stat(path.c_str(), st);
-        set_time(reply->mutable_ts(), st.st_mtim);
+        reply->set_ts(st.st_mtim.tv_sec);
         return Status::OK;
     }
 
@@ -132,14 +133,17 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         Stat stat;
         const int ret = set_stat(path.c_str(), &stat);
         int status = (int)FileStatus::OK;
-        if (stat.mtim() == req->ts()) {
+        if (stat.mtim() == req->ts() && stat.mtim() != 0 && ret == 0) {
             status = ((int)FileStatus::FILE_ALREADY_CACHED);
         } else if (fd < 0) {
             status = ((int)FileStatus::FILE_OPEN_ERROR);
             cerr_serv_calls("server errno = ", err," for file: ", path);
         }
-        std::cerr << "streaming status = " << status << "\n";
+        std::cerr << "streaming status = " << status << " @ "
+                << path << " " 
+                << stat.mtim() << " " << req->ts()  << "\n";
         reply.set_error(err);
+        reply.set_mtim(stat.mtim());
         reply.set_status(status);
         writer->Write(reply);
         if (status == (int)FileStatus::OK) {
@@ -161,12 +165,22 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                   helloworld::File>* reader, Int* reply) override {
         helloworld::File file;
         reader->Read(&file);
+        struct utimbuf new_ts;
+        new_ts.modtime = file.mtim();
+
         const auto path = get_server_path(file.path());
-        std::ofstream fs(path);
-        cerr_serv_calls("closing file: ", file.path());
+        auto [tmp_fd, tmp_fname] = get_tmp_file();
+        cerr_serv_calls("closing file: ", file.path(), " saving to tmp:", tmp_fname,
+            " modts: ", new_ts.modtime);
+
         while (reader->Read(&file)) {
-            fs << file.byte();
+            ::write(tmp_fd, file.byte().c_str(), file.byte().length());
         }
+        ::close(tmp_fd);
+        ::utime(tmp_fname.c_str(), &new_ts);
+        ::rename(tmp_fname.c_str(), path.c_str());
+        ::utime(path.c_str(), &new_ts);
+
         return Status::OK;
     }
 
@@ -176,13 +190,12 @@ private:
         const auto ret = get_stat(path, stat);
         if (ret !=0) return ret;
         set_time(reply->mutable_atim(), stat.st_atim);
-        set_time(reply->mutable_mtim(), stat.st_mtim);
+        reply->set_mtim(stat.st_mtim.tv_sec);
         set_time(reply->mutable_ctim(), stat.st_ctim);
         reply->set_size(stat.st_size);
 
         reply->set_ino(stat.st_ino);
         reply->set_mode(stat.st_mode);
-        std::cerr << "mode for " << path << " is " << stat.st_mode << "\n";
         reply->set_nlink(stat.st_nlink);
         reply->set_uid(stat.st_uid);
         reply->set_gid(stat.st_gid);
