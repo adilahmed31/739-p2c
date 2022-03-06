@@ -24,6 +24,7 @@ message ReadDirResp {
 }
 
 message Stat {
+  int32 error = 12;
   Time atim = 1;
   Time mtim = 2;
   Time ctim = 3;
@@ -43,6 +44,7 @@ message File {
   int32 status = 3;
   Stat stat = 1;
   bytes byte = 2;
+  int32 error = 5;
 }
 
 service BasicRPC {

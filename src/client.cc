@@ -48,7 +48,7 @@ int do_getattr(const char* path, struct stat* st) {
 	}
 		
     std::cerr << do_getattr << " " << path << " " << st->st_size << "\n";
-    return 0;
+    return s.error();
 }
 
 int do_fgetattr(const char* path, struct stat* stbuf,  fuse_file_info*) {
@@ -93,7 +93,7 @@ static int do_write(const char* path, const char* buf,
         size_t size, off_t offset, struct  fuse_file_info *fi){
 
     const int rc = pwrite(fi->fh,buf,size,offset);
-    std::cerr << "do_write: " << path << " " << rc << "\n";
+    std::cerr << __PRETTY_FUNCTION__ << path << " " << rc << "\n";
     if(rc<0){
         return -errno;
     }
@@ -124,8 +124,6 @@ int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
 }
 
 static int do_release(const char* path, struct fuse_file_info* fi) {
-    std::cerr << "will close file in 2s\n";
-    usleep(2e6);
     std::cerr <<"closing file now..\n";
     greeter->c_release(path, fi->fh);
     return ::close(fi->fh);
@@ -133,8 +131,13 @@ static int do_release(const char* path, struct fuse_file_info* fi) {
 
 void test() {
     usleep(1e6);
-    greeter->c_create("a.txt", 0777);
-    print_proto_stat(greeter->c_stat("a.txt"));
+    const char* fname = "/tmp/ab_fs/b.txt";
+    const int fd = ::open(fname, O_CREAT| O_RDWR);
+    std::cerr << "open w fd:"  << fd << "\n";
+    ::write(fd, fname, strlen(fname));
+    ::close(fd);
+//    greeter->c_create("a.txt", 0777);
+//    print_proto_stat(greeter->c_stat("a.txt"));
 
     //std::cerr << "trying to open fuse file /tmp/ab_fuse/a.txt\n";
 //    std::cerr << "[*] opening file\n";
@@ -166,6 +169,7 @@ int main(int argc, char *argv[])
             grpc::InsecureChannelCredentials() , ch_args ));
 
     auto tester = std::async(std::launch::async, [&]() { test(); });
+    operations.create = do_create;
     operations.init = hello_init;
     operations.open = do_open;
     operations.getattr = do_getattr;

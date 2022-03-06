@@ -30,9 +30,13 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
         const auto path = get_server_path(req->path());
-        reply->set_value(::creat(path.c_str(), req->flag()));
-        std::ofstream fs(path.c_str()); fs << "test string";
-        set_time(reply->mutable_ts(), get_stat(path.c_str()).st_mtim);
+        reply->set_value(0);
+        if ( ::creat(path.c_str(), 0777) < 0 )
+            reply->set_value(-errno);
+   //     std::ofstream fs(path.c_str()); fs << "test string";
+        struct stat  st ;
+        const int ret = get_stat(path.c_str(), st);
+        set_time(reply->mutable_ts(), st.st_mtim);
         return Status::OK;
     }
 
@@ -42,7 +46,9 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         cerr_serv_calls(__PRETTY_FUNCTION__);
         const auto path = get_server_path(req->path());
         reply->set_value(::mkdir(path.c_str(), req->flag()));
-        set_time(reply->mutable_ts(), get_stat(path.c_str()).st_mtim);
+        struct stat  st ;
+        const int ret = get_stat(path.c_str(), st);
+        set_time(reply->mutable_ts(), st.st_mtim);
         return Status::OK;
     }
 
@@ -85,7 +91,8 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Stat* reply) override
     {
         const auto path = get_server_path(req->path());
-        set_stat(path.c_str(), reply);
+        const int ret = set_stat(path.c_str(), reply);
+        reply->set_error(ret);
         cerr_serv_calls(__PRETTY_FUNCTION__, " -> ", path,
             " sz = ", reply->size());
         return Status::OK;
@@ -95,32 +102,38 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                     ServerWriter<helloworld::File>* writer) override {
         cerr_serv_calls(__PRETTY_FUNCTION__);
         constexpr int sz = 1 << 16;
-        static thread_local char* buffer = new char[sz];
+        static thread_local char* buf= new char[sz];
 
         const auto path = get_server_path(req->path());
 
-        std::ifstream fs(path);
-
+        const int fd = ::open(path.c_str(), O_RDWR);
+        const int err = (fd < 0) ? -errno : 0;
         helloworld::File reply;
         Stat stat;
-        set_stat(path.c_str(), &stat);
+        const int ret = set_stat(path.c_str(), &stat);
         int status = (int)FileStatus::OK;
         if (stat.mtim() == req->ts()) {
             status = ((int)FileStatus::FILE_ALREADY_CACHED);
-        } else if (!fs.good()) {
+        } else if (fd < 0) {
             status = ((int)FileStatus::FILE_OPEN_ERROR);
+            cerr_serv_calls("server errno = ", err," for file: ", path);
         }
-
         std::cerr << "streaming status = " << status << "\n";
+        reply.set_error(err);
         reply.set_status(status);
         writer->Write(reply);
-        if (status == (int)FileStatus::OK)
-            std::cerr << "streaming file now\n";
-            while (!fs.eof()) {
-                fs.read(buffer, sz);
-                reply.set_byte(buffer);
+        if (status == (int)FileStatus::OK) {
+            int n;
+            int tot_sent = 0;
+            while (n = ::read(fd, buf, sz)) {
+                std::string tmp = std::string(buf, n);
+                std::cerr << n << " -> " << tmp << "\n";
+                reply.set_byte(std::move(tmp));
+                tot_sent += n;
                 writer->Write(reply);
             }
+            std::cerr << "[open] streamed: " << tot_sent << " bytes\n";
+        }
         return Status::OK;
     }
 
@@ -138,8 +151,10 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     }
 
 private:
-    static void set_stat(const char* path, Stat* reply) {
-        const auto stat = get_stat(path);
+    static int set_stat(const char* path, Stat* reply) {
+        struct stat stat;
+        const auto ret = get_stat(path, stat);
+        if (ret !=0) return ret;
         set_time(reply->mutable_atim(), stat.st_atim);
         set_time(reply->mutable_mtim(), stat.st_mtim);
         set_time(reply->mutable_ctim(), stat.st_ctim);
@@ -153,6 +168,7 @@ private:
         reply->set_rdev(stat.st_rdev);
         reply->set_size(stat.st_size);
         reply->set_blocks(stat.st_blocks);
+        return 0;
     }
 
     static void set_time(helloworld::Time* ret, const struct timespec& ts) {
@@ -160,10 +176,10 @@ private:
         ret->set_nsec(ts.tv_nsec);
     }
 
-    static struct stat get_stat(const char* path) {
-        struct stat st;
-        ::stat(path, &st);
-        return st;
+    static int get_stat(const char* path, struct stat& st) {
+        const int ret = ::stat(path, &st);
+        if (ret < 0) { cerr_serv_calls("stat got error for ", path, " -> ", -errno);  return -errno; }
+        return 0;
     }
     
 };

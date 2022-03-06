@@ -4,6 +4,9 @@
 #include <fcntl.h>
 
 void BasicRPCClient::c_release(const char* path, int fd) {
+    FILE* fp = fdopen(fd, "r");
+    ::rewind(fp);
+    fd = ::fileno(fp);
     ClientContext context;
     using pFile = helloworld::File;
     pFile out;
@@ -19,10 +22,14 @@ void BasicRPCClient::c_release(const char* path, int fd) {
 
     char buf[1<<16];
     int n;
+    int tot_sent = 0;
     while ((n = ::read(fd, buf, sizeof(buf))) > 0) {
         out.set_byte(std::string(buf, n));
+        tot_sent += n;
         writer->Write(out);
+        std::cerr << n << " -> " << std::string(buf, n);
     }
+    std::cerr << "[close] streamed: " << tot_sent << " bytes\n";
     writer->WritesDone();
     Status status = writer->Finish();
 
@@ -51,13 +58,16 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
 
     pFile fstream;
     reader->Read(&fstream);
+    if (fstream.error()) return fstream.error();
     log_client(__PRETTY_FUNCTION__, " ", cached_tmp_path, " => ",
             cached_path, " ", fstream.status());
 
     if (fstream.status() == (int)FileStatus::OK) {
         std::cerr << "Reading file\n";
-        while (reader->Read(&fstream))
-            fs << fstream.byte();
+        while (reader->Read(&fstream)) {
+            std::cerr << fstream.byte().length() << " -> " << fstream.byte() << "\n";
+            fs << fstream.byte().c_str();
+        }
         fs.close();
         Status status = reader->Finish();
         if (!status.ok()) {
@@ -160,7 +170,7 @@ Stat BasicRPCClient::c_stat(const std::string& path) {
             }, get(path), RespType(), 
             __PRETTY_FUNCTION__);
     if (!reply) {
-        // some error in grpc
+        reply->set_error(-ENONET);
     }
     return *reply;
 }
