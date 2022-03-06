@@ -90,4 +90,5 @@ _deps
 *.dSYM/
 *.su
 *.idb
-*.pdb
+a.out
+tester
