@@ -7,7 +7,27 @@
 #include <utime.h>
 #include <sys/stat.h>
 
+enum class RUN_MODE_ENUM {
+    POSIX, SYNC, STRICT
+};
 
+const auto RUN_MODE = []() {
+        const auto mode = std::getenv("RUN_MODE");
+        if (mode == nullptr) {
+            std::cerr << "[RUN_MODE] = NULL. using POSIX\n";
+            return RUN_MODE_ENUM::POSIX;
+        }
+        if (strcmp(mode, "STRICT") == 0) {
+            std::cerr << "[RUN_MODE] = STRICT\n";
+            return RUN_MODE_ENUM::POSIX;
+        }
+        if (strcmp(mode, "SYNC") == 0) {
+            std::cerr << "[RUN_MODE] = SYNC\n";
+            return RUN_MODE_ENUM::SYNC;
+        }
+        std::cerr << "[RUN_MODE] = POSIX\n";
+        return RUN_MODE_ENUM::POSIX;
+}();
 
 using helloworld::BasicRPC;
 using helloworld::Int;
@@ -20,12 +40,25 @@ namespace helloworld {
     }
 }
 
-constexpr bool DISABLE_CERR_ERRORS = false;
-constexpr bool PRINT_SERVER_OUT = true;
+constexpr const char* CACHE_BASE_PATH = "/tmp/fuse_cache/";
+
+inline std::string get_cache_path(const std::string path) {
+    return std::string(CACHE_BASE_PATH) +
+            std::to_string(std::hash<std::string>()(path));
+}
+
+inline std::string get_tmp_cache_path(const std::string path) {
+    return std::string(CACHE_BASE_PATH) + ".tmp." +
+             std::to_string(std::hash<std::string>()(path));
+}
+
+constexpr bool DISABLE_CERR_ERRORS = true;
+constexpr bool CERR_SERVER_CALLS = false;
+constexpr bool PRINT_SERVER_OUT = false;
 
 inline std::pair<int, std::string> get_tmp_file() {
     char templat[100];
-    strcpy(templat, "/tmp/afs_tmp_fileXXXXXX");
+    strcpy(templat, "/users/agabhin/.fuse_server/afs_tmp_fileXXXXXX");
     const int fd = mkstemp(templat);
     return {fd, std::string(templat)};
 }
@@ -71,7 +104,6 @@ inline void print_server_out(const char* fn, const ReplyT& reply) {
         (std::cerr << fn << " -> " << reply.get_value() << "\n");
 }
 
-constexpr bool CERR_SERVER_CALLS = true;
 
 template <class... T>
 inline void cerr_serv_calls(const T&... args) {

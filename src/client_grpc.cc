@@ -3,7 +3,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-void BasicRPCClient::c_release(const char* path, int fd) {
+int BasicRPCClient::c_flush(const char* path, int fd) {
     FILE* fp = fdopen(fd, "r");
     ::rewind(fp);
     fd = ::fileno(fp);
@@ -28,25 +28,24 @@ void BasicRPCClient::c_release(const char* path, int fd) {
         out.set_byte(std::string(buf, n));
         tot_sent += n;
         writer->Write(out);
-        std::cerr << n << " -> " << std::string(buf, n);
     }
-    std::cerr << "[close] streamed: " << tot_sent
-            << " path = " << get_cache_path(path)
-            << " bytes, mod = " << out.mtim() << "\n"; 
+//    std::cerr << "[close] streamed: " << tot_sent
+//            << " path = " << get_cache_path(path)
+//            << " bytes, mod = " << out.mtim() << "\n"; 
     writer->WritesDone();
     Status status = writer->Finish();
 
     if (status.ok()) {
-        log_client("client_grpc close sucess");
-        // use reply here !!!
+        log_client("client_grpc fsync sucess");
+        return 0;
     } else {
-        // grpc error
+        return -ENOENT;
     }
 }
 
 int BasicRPCClient::c_open(const std::string& path, int flag) {
     flag = 0777;
-    std::cerr << __PRETTY_FUNCTION__ << "\n";
+//    std::cerr << __PRETTY_FUNCTION__ << "\n";
     ClientContext context;
     // TODO: send cached file ts here as well !!!
     PathNFlag req;
@@ -54,7 +53,7 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
     req.set_flag(flag);
     const auto cached_path = get_cache_path(path);
     req.set_ts(get_mod_ts(cached_path.c_str()));
-    std::cerr << "[*] mod ts of: " << cached_path << " " << req.ts() << "\n";
+    //std::cerr << "[*] mod ts of: " << cached_path << " " << req.ts() << "\n";
     using pFile =  helloworld::File;
     std::unique_ptr<ClientReader<pFile>> reader(
                 stub_->s_open(&context, req));
@@ -72,9 +71,8 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
             ,fstream.mtim());
 
     if (fstream.status() == (int)FileStatus::OK) {
-        std::cerr << "Reading file\n";
+        //std::cerr << "Reading file\n";
         while (reader->Read(&fstream)) {
-            std::cerr << fstream.byte().length() << " -> " << fstream.byte() << "\n";
             fs << fstream.byte().c_str();
         }
         fs.close();
@@ -85,9 +83,9 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
         ::utime(cached_tmp_path.c_str(), &new_ts);
         auto ret = ::rename(cached_tmp_path.c_str(), cached_path.c_str());
         ::utime(cached_path.c_str(), &new_ts);
-        std::cerr << "after rename -> "  << ret << " " << errno << "\n";
+        //std::cerr << "after rename -> "  << ret << " " << errno << "\n";
     } else if (fstream.status() == (int)FileStatus::FILE_OPEN_ERROR) {
-        std::cerr << "file doesn't exists " << path << "\n";
+        //std::cerr << "file doesn't exists " << path << "\n";
         return -ENOENT;
     } else {
         log_client("[*] file already cached on client: ", path);

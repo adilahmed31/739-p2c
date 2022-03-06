@@ -26,6 +26,10 @@ class BasicRPCClient
 {
     
 public:
+    struct OpenRet {
+        int ret;
+        size_t size;
+    };
     BasicRPCClient(std::shared_ptr<Channel> channel)
             : stub_(BasicRPC::NewStub(channel)) {}
     
@@ -36,19 +40,9 @@ public:
     helloworld::ReadDirResp c_readdir(const std::string& path);
     Stat c_stat(const std::string& path);
     int c_open(const std::string& path, int flag);
-    void c_release(const char* path, int fd);
+    int c_flush(const char* path, int fd);
     int c_unlink(const char* path);
 private:
-    static std::string get_cache_path(const std::string path) {
-        return std::string(CACHE_BASE_PATH) +
-                std::to_string(std::hash<std::string>()(path));
-    }
-
-    static std::string get_tmp_cache_path(const std::string path) {
-        return std::string(CACHE_BASE_PATH) + ".tmp." +
-                 std::to_string(std::hash<std::string>()(path));
-    }
-    static constexpr const char* CACHE_BASE_PATH = "/tmp/fuse_cache/";
     template <class ArgT, class ReplyT, class F>
     std::optional<ReplyT> call_grpc(F&& f, const ArgT& arg, 
                     ReplyT&& ,

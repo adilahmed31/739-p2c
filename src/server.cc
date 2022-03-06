@@ -139,9 +139,9 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
             status = ((int)FileStatus::FILE_OPEN_ERROR);
             cerr_serv_calls("server errno = ", err," for file: ", path);
         }
-        std::cerr << "streaming status = " << status << " @ "
-                << path << " " 
-                << stat.mtim() << " " << req->ts()  << "\n";
+     //   std::cerr << "streaming status = " << status << " @ "
+     //           << path << " " 
+     //           << stat.mtim() << " " << req->ts()  << "\n";
         reply.set_error(err);
         reply.set_mtim(stat.mtim());
         reply.set_status(status);
@@ -151,13 +151,13 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
             int tot_sent = 0;
             while (n = ::read(fd, buf, sz)) {
                 std::string tmp = std::string(buf, n);
-                std::cerr << n << " -> " << tmp << "\n";
                 reply.set_byte(std::move(tmp));
                 tot_sent += n;
                 writer->Write(reply);
             }
-            std::cerr << "[open] streamed: " << tot_sent << " bytes\n";
+            //std::cerr << "[open] streamed: " << tot_sent << " bytes\n";
         }
+        ::close(fd);
         return Status::OK;
     }
 

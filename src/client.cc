@@ -6,7 +6,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static bool fd_dirty[1 << 16];
+struct fd_data {
+    bool dirty;
+    size_t bytes;
+    fd_data() {
+        ::bzero(this, sizeof(*this));
+    }
+};
+static fd_data fds[1 << 16];
 void sigintHandler(int sig_num)
 {
     std::cerr << "Clean Shutdown\n";
@@ -16,6 +23,7 @@ void sigintHandler(int sig_num)
     fflush(stdout);
     std::exit(0);
 }
+int do_fsync(const char* path, int, struct fuse_file_info* fi);
 
 template <class T>
 auto get_time(const T& t) {
@@ -49,20 +57,24 @@ int do_getattr(const char* path, struct stat* st) {
 }
 
 int do_fgetattr(const char* path, struct stat* stbuf,  fuse_file_info*) {
-    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    //std::cerr << __PRETTY_FUNCTION__ << '\n';
     return do_getattr(path, stbuf);
 }
 static void *hello_init(struct fuse_conn_info *conn)
 {
-    std::cerr << __PRETTY_FUNCTION__ << std::endl;
+    //std::cerr << __PRETTY_FUNCTION__ << std::endl;
 	return NULL;
 }
 
 static int do_open(const char* path, struct fuse_file_info* fi) {
-    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    //std::cerr << __PRETTY_FUNCTION__ << '\n';
     fi->fh = greeter->c_open(path, fi->flags);
+#ifdef PARALLEL_THREAD_OPT
+    fds[fi->fh].size = ret.size;
+    std::cerr << "PARALLEL_THREAD_OPT size = " << ret.size << "\n";
+#endif
 #ifdef CLOSE_DIRTY_OPT
-    fd_dirty[fi->fh] = 0;
+    fds[fi->fh].dirty = 0;
 #endif
     return 0;
 }
@@ -74,7 +86,7 @@ int do_rmdir(const char* path) {
 }
 
 static int do_create(const char* path, mode_t mode, struct fuse_file_info* fi){
-     std::cerr << __PRETTY_FUNCTION__ << '\n';
+     //std::cerr << __PRETTY_FUNCTION__ << '\n';
      if (int ret = greeter->c_create(path, fi->flags); ret < 0)
         return ret;
     const int fd = fi->fh = greeter->c_open(path, fi->flags);
@@ -83,7 +95,7 @@ static int do_create(const char* path, mode_t mode, struct fuse_file_info* fi){
 }
 
 static int do_access(const char* path, int) {
-    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    //std::cerr << __PRETTY_FUNCTION__ << '\n';
     return 0;
 }
 
@@ -99,28 +111,31 @@ static int do_read(const char* path, char* buf,
     return rc;
 }
 
+static int do_flush(const char* path, struct fuse_file_info* fi) ;
+
 static int do_write(const char* path, const char* buf,
         size_t size, off_t offset, struct  fuse_file_info *fi){
-#ifdef CLOSE_DIRTY_OPT
-    fd_dirty[fi->fh] = 1;
-#endif
-
     const int rc = pwrite(fi->fh,buf,size,offset);
-    std::cerr << __PRETTY_FUNCTION__ << path << " " << rc << "\n";
+//    std::cerr << __PRETTY_FUNCTION__ << path << " " << rc << "\n";
     if(rc<0){
         return -errno;
     }
-
+#ifdef CLOSE_DIRTY_OPT
+    fds[fi->fh].dirty = 1;
+#endif
+    if (RUN_MODE == RUN_MODE_ENUM::SYNC) {
+        do_fsync(path, 0, fi);
+    }
     return rc;
 }
 
 static int do_opendir(const char* path, struct fuse_file_info* fi){
-    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    //std::cerr << __PRETTY_FUNCTION__ << '\n';
     return 0;
 }
 
 static int do_releasedir(const char* path, struct fuse_file_info* fi){
-    std::cerr << __PRETTY_FUNCTION__ << '\n';
+    //std::cerr << __PRETTY_FUNCTION__ << '\n';
     return 0;
 }
 
@@ -139,47 +154,42 @@ int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
     return 0;
 }
 
-static int do_release(const char* path, struct fuse_file_info* fi) {
-    std::cerr <<"closing file now..\n";
+int do_fsync(const char* path, int, struct fuse_file_info* fi) {
 #ifdef CLOSE_DIRTY_OPT
-    if (!fd_dirty[fi->fh]) {
-        std::cerr << path << " is clean. skip gRPC\n";
-    } else
+    bool skip_grpc = false;
+    if (!fds[fi->fh].dirty) {
+        const Stat s = greeter->c_stat(path);
+        if (s.mtim() == get_mod_ts(get_cache_path(path).c_str())) {
+            //std::cerr << path << " File is clean. skip gRPC\n";
+            skip_grpc = true;
+        }
+        else 
+            ;//std::cerr << path << " updated on server. overwriting with our version!\n";
+    }
+    if (!skip_grpc)
 #endif
-    greeter->c_release(path, fi->fh);
-    return ::close(fi->fh);
+    return greeter->c_flush(path, fi->fh);
+    return 0;
 }
 
+static int do_flush(const char* path, struct fuse_file_info* fi) {
+    if (RUN_MODE == RUN_MODE_ENUM::SYNC)
+        return 0;
+    return do_fsync(path, 0, fi);
+}
+
+static int do_release(const char* path, struct fuse_file_info* fi) {
+    return ::close(fi->fh);
+}
 void test() {
     usleep(1e6);
     const char* fname = "/tmp/ab_fs/b.txt";
     int fd = ::open(fname, O_CREAT| O_RDWR);
 //    std::cerr << "open w fd:"  << fd << "\n";
-//    ::write(fd, fname, strlen(fname));
+    ::write(fd, fname, strlen(fname));
+    ::write(fd, fname, strlen(fname));
+    ::write(fd, "\n", 1);
     ::close(fd);
-//    // O_APPEND
-//    std::cerr << "reopening file for append mode now\n";
-//    fd = ::open(fname, O_RDWR);
-////    ::write(fd, fname, strlen(fname));
-////    ::write(fd, fname, strlen(fname));
-//    ::pwrite(fd, "ABH", 3, 0);
-//    ::close(fd);
-//    greeter->c_create("a.txt", 0777);
-//    print_proto_stat(greeter->c_stat("a.txt"));
-
-    //std::cerr << "trying to open fuse file /tmp/ab_fuse/a.txt\n";
-//    std::cerr << "[*] opening file\n";
-//    FILE* fi = fopen("/tmp/ab_fs/a.txt", "r");
-//    int fd = fileno(fi);
-//    std::cerr << "fd is " << fd << "\n";
-//    char filePath[PATH_MAX];
-//    if (fcntl(fd, F_GETPATH, filePath) != -1)
-//        std::cerr << "path for the file is : " << filePath << "\n";
-
-//    char buf[100];
-//    std::cerr << "[*] calling read now...\n";
-//    const int sz = read(fd, buf, sizeof(buf));
-//    std::cerr << buf;
 }
 static struct fuse_operations operations;
 int main(int argc, char *argv[])
@@ -210,6 +220,8 @@ int main(int argc, char *argv[])
     operations.releasedir = do_releasedir;
 //    operations.fgetattr = do_fgetattr;
     operations.release = do_release;
+    operations.fsync = do_fsync;
+    operations.flush = do_flush;
     operations.mkdir = do_mkdir;
     operations.rmdir = do_rmdir;
     operations.unlink = do_unlink;
