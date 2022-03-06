@@ -3,6 +3,37 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+void BasicRPCClient::c_release(const char* path, int fd) {
+    ClientContext context;
+    using pFile = helloworld::File;
+    pFile out;
+    Int reply;
+
+    std::unique_ptr <ClientWriter<pFile>> writer(
+            stub_->s_close(&context, &reply));
+
+    out.set_path(path);
+    writer->Write(out);
+
+    ::lseek(fd, 0, SEEK_SET);
+
+    char buf[1<<16];
+    int n;
+    while ((n = ::read(fd, buf, sizeof(buf))) > 0) {
+        out.set_byte(std::string(buf, n));
+        writer->Write(out);
+    }
+    writer->WritesDone();
+    Status status = writer->Finish();
+
+    if (status.ok()) {
+        log_client("client_grpc close sucess");
+        // use reply here !!!
+    } else {
+        // grpc error
+    }
+}
+
 int BasicRPCClient::c_open(const std::string& path, int flag) {
     flag = 0777;
     std::cerr << __PRETTY_FUNCTION__ << "\n";
@@ -12,7 +43,7 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
     req.set_path(path);
     req.set_flag(flag);
     using pFile =  helloworld::File;
-    std::unique_ptr <ClientReader<pFile>> reader(
+    std::unique_ptr<ClientReader<pFile>> reader(
                 stub_->s_open(&context, req));
     const auto cached_tmp_path = get_tmp_cache_path(path);
     const auto cached_path = get_cache_path(path);
@@ -34,13 +65,16 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
         }
         auto ret = ::rename(cached_tmp_path.c_str(), cached_path.c_str());
         std::cerr << "after rename -> "  << ret << " " << errno << "\n";
+    } else if (fstream.status() == (int)FileStatus::FILE_OPEN_ERROR) {
+        std::cerr << "file doesn't exists " << path << "\n";
+        return -ENOENT;
     } else {
-        // TODO:
+        log_client("file already cached on client: ", path);
     }
     const auto ret = ::open(cached_path.c_str(), O_RDWR);
-    char buf[100];
-    readlink((std::string("/proc/self/fd/") + std::to_string(ret)).c_str() , buf, sizeof(buf));
-    log_client("returning fd = ", ret, " -> ", buf);
+//    char buf[100];
+//    readlink((std::string("/proc/self/fd/") + std::to_string(ret)).c_str() , buf, sizeof(buf));
+//    log_client("returning fd = ", ret, " -> ", buf);
     return ret;
 }
 

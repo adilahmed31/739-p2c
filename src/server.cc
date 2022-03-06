@@ -130,7 +130,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         reader->Read(&file);
         const auto path = get_server_path(file.path());
         std::ofstream fs(path);
-        
+        cerr_serv_calls("closing file: ", file.path());
         while (reader->Read(&file)) {
             fs << file.byte();
         }

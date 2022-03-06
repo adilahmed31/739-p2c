@@ -77,12 +77,11 @@ static int do_access(const char* path, int) {
     return 0;
 }
 
-static int do_read(const char* path, char* buf, size_t size, off_t offset, struct  fuse_file_info *fi){
+static int do_read(const char* path, char* buf,
+    size_t size, off_t offset, struct  fuse_file_info *fi){
     int rc = 0;
-    std::cerr << __PRETTY_FUNCTION__ << " " << fi->fh <<  " " << size << " " <<  offset << " " << rc<< '\n';
     rc = pread(fi->fh,buf,size,offset);
     
-    std::cerr << __PRETTY_FUNCTION__ << " " << fi->fh <<  " " << size << " " <<  offset << " " << rc<< '\n';
     if(rc<0){
         return -errno;
     }
@@ -90,10 +89,11 @@ static int do_read(const char* path, char* buf, size_t size, off_t offset, struc
     return rc;
 }
 
-static int do_write(const char* path, const char* buf, size_t size, off_t offset, struct  fuse_file_info *fi){
-    int rc = 0;
+static int do_write(const char* path, const char* buf,
+        size_t size, off_t offset, struct  fuse_file_info *fi){
 
-    rc = pwrite(fi->fh,buf,size,offset);
+    const int rc = pwrite(fi->fh,buf,size,offset);
+    std::cerr << "do_write: " << path << " " << rc << "\n";
     if(rc<0){
         return -errno;
     }
@@ -123,6 +123,13 @@ int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
     return 0;
 }
 
+static int do_release(const char* path, struct fuse_file_info* fi) {
+    std::cerr << "will close file in 2s\n";
+    usleep(2e6);
+    std::cerr <<"closing file now..\n";
+    greeter->c_release(path, fi->fh);
+    return ::close(fi->fh);
+}
 
 void test() {
     usleep(1e6);
@@ -169,6 +176,7 @@ int main(int argc, char *argv[])
     operations.opendir = do_opendir;
     operations.readdir = do_readdir;
     operations.releasedir = do_releasedir;
-    operations.fgetattr = do_fgetattr;
+//    operations.fgetattr = do_fgetattr;
+    operations.release = do_release;
     return fuse_main(argc, argv, &operations, &greeter);
 }

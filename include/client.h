@@ -36,6 +36,7 @@ public:
     helloworld::ReadDirResp c_readdir(const std::string& path);
     Stat c_stat(const std::string& path);
     int c_open(const std::string& path, int flag);
+    void c_release(const char* path, int fd);
 private:
     static std::string get_cache_path(const std::string path) {
         return std::string(CACHE_BASE_PATH) +
