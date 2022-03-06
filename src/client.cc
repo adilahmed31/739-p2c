@@ -34,20 +34,20 @@ int do_getattr(const char* path, struct stat* st) {
     };
     st->st_atim = get_time(s.atim());
     st->st_mtim = get_time(s.mtim());
-    st->st_ctim = get_time(s.ctim());
-	if ( strcmp( path, "/" ) == 0 )
-	{
-		st->st_mode = S_IFDIR | 0755;
-		st->st_nlink = 2;
-	}
-	else
-	{
-		st->st_mode = S_IFREG | 0644;
-		st->st_nlink = 1;
-		st->st_size = 1024;
-	}
+//    st->st_ctim = get_time(s.ctim());
+//	if ( strcmp( path, "/" ) == 0 )
+//	{
+//		st->st_mode = S_IFDIR | 0755;
+//		st->st_nlink = 2;
+//	}
+//	else
+//	{
+//		st->st_mode = S_IFREG | 0644;
+//		st->st_nlink = 1;
+//		st->st_size = 1024;
+//	}
+    //std::cerr << "[*] set mode for " << path << " is " << st->st_mode << "\n";
 		
-    std::cerr << do_getattr << " " << path << " " << st->st_size << "\n";
     return s.error();
 }
 
@@ -65,6 +65,12 @@ static int do_open(const char* path, struct fuse_file_info* fi) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
     fi->fh = greeter->c_open(path, fi->flags);
     return 0;
+}
+int do_mkdir(const char* path, mode_t mode) {
+    return greeter->c_mkdir(path);
+}
+int do_rmdir(const char* path) {
+    return greeter->c_rmdir(path);
 }
 
 static int do_create(const char* path, mode_t mode, struct fuse_file_info* fi){
@@ -111,6 +117,9 @@ static int do_releasedir(const char* path, struct fuse_file_info* fi){
     return 0;
 }
 
+int do_unlink(const char* path) {
+    return greeter->c_unlink(path);
+}
 int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
                       off_t offset, struct fuse_file_info* fi) {
     const auto resp = greeter->c_readdir(path);
@@ -132,9 +141,16 @@ static int do_release(const char* path, struct fuse_file_info* fi) {
 void test() {
     usleep(1e6);
     const char* fname = "/tmp/ab_fs/b.txt";
-    const int fd = ::open(fname, O_CREAT| O_RDWR);
+    int fd = ::open(fname, O_CREAT| O_RDWR);
     std::cerr << "open w fd:"  << fd << "\n";
     ::write(fd, fname, strlen(fname));
+    ::close(fd);
+    // O_APPEND
+    std::cerr << "reopening file for append mode now\n";
+    fd = ::open(fname, O_RDWR);
+//    ::write(fd, fname, strlen(fname));
+//    ::write(fd, fname, strlen(fname));
+    ::pwrite(fd, "ABH", 3, 0);
     ::close(fd);
 //    greeter->c_create("a.txt", 0777);
 //    print_proto_stat(greeter->c_stat("a.txt"));
@@ -182,5 +198,8 @@ int main(int argc, char *argv[])
     operations.releasedir = do_releasedir;
 //    operations.fgetattr = do_fgetattr;
     operations.release = do_release;
+    operations.mkdir = do_mkdir;
+    operations.rmdir = do_rmdir;
+    operations.unlink = do_unlink;
     return fuse_main(argc, argv, &operations, &greeter);
 }

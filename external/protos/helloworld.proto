@@ -50,6 +50,7 @@ message File {
 service BasicRPC {
   rpc s_creat (PathNFlag) returns (Int) {}
   rpc s_mkdir (PathNFlag) returns (Int) {}
+  rpc s_unlink (PathNFlag) returns (Int) {}
   rpc s_rm (PathNFlag) returns (Int) {}
   rpc s_rmdir (PathNFlag) returns (Int) {}
   rpc s_stat (PathNFlag) returns (Stat) {}

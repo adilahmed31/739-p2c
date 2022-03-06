@@ -30,13 +30,14 @@ public:
             : stub_(BasicRPC::NewStub(channel)) {}
     
     int c_create(const std::string& path, int flag);
-    int c_mkdir(const std::string& path, int flag);
+    int c_mkdir(const std::string& path);
     int c_rm(const std::string& path, int flag);
-    int c_rmdir(const std::string& path, int flag);
+    int c_rmdir(const std::string& path);
     helloworld::ReadDirResp c_readdir(const std::string& path);
     Stat c_stat(const std::string& path);
     int c_open(const std::string& path, int flag);
     void c_release(const char* path, int fd);
+    int c_unlink(const char* path);
 private:
     static std::string get_cache_path(const std::string path) {
         return std::string(CACHE_BASE_PATH) +
@@ -62,7 +63,7 @@ private:
         }
         return reply;
     }
-    static PathNFlag get(const std::string& path, int flag = 0);
+    static PathNFlag get(const std::string& path, int flag = 0777);
     std::unique_ptr<BasicRPC::Stub> stub_;
 };
 

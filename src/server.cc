@@ -25,6 +25,19 @@ std::string get_server_path(const std::string& path) {
 
 class BasicRPCServiceImpl final : public BasicRPC::Service
 {
+    Status s_unlink(ServerContext* context, const PathNFlag* req
+                           , Int* reply) override
+    {
+        cerr_serv_calls(__PRETTY_FUNCTION__);
+        const auto path = get_server_path(req->path());
+        reply->set_value(0);
+        if ( ::unlink(path.c_str()) < 0 )
+            reply->set_value(-errno);
+   //     std::ofstream fs(path.c_str()); fs << "test string";
+        return Status::OK;
+    }
+
+
     Status s_creat(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
@@ -45,7 +58,9 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
         const auto path = get_server_path(req->path());
-        reply->set_value(::mkdir(path.c_str(), req->flag()));
+        if(::mkdir(path.c_str(), 0777) < 0) { 
+            reply->set_value(-errno);
+        }
         struct stat  st ;
         const int ret = get_stat(path.c_str(), st);
         set_time(reply->mutable_ts(), st.st_mtim);
@@ -56,7 +71,11 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
-        reply->set_value(::rmdir(get_server_path(req->path()).c_str()));
+        const auto path = get_server_path(req->path());
+        if(::rmdir(path.c_str()) < 0) { 
+            reply->set_value(-errno);
+        }
+
         return Status::OK;
     }
 
@@ -76,6 +95,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         const auto path = get_server_path(req->path());
         cerr_serv_calls("s_readdir on ", path);
         dp = opendir(path.c_str());
+        reply->set_ret_code(0);
         if (dp == nullptr) {
             reply->set_ret_code(-errno);
             return Status::OK;
@@ -93,8 +113,8 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
         const auto path = get_server_path(req->path());
         const int ret = set_stat(path.c_str(), reply);
         reply->set_error(ret);
-        cerr_serv_calls(__PRETTY_FUNCTION__, " -> ", path,
-            " sz = ", reply->size());
+//        cerr_serv_calls("[*] stat ", path,
+//            " sz = ", reply->size(), " mode = ", reply->mode());
         return Status::OK;
     }
 
@@ -162,6 +182,7 @@ private:
 
         reply->set_ino(stat.st_ino);
         reply->set_mode(stat.st_mode);
+        std::cerr << "mode for " << path << " is " << stat.st_mode << "\n";
         reply->set_nlink(stat.st_nlink);
         reply->set_uid(stat.st_uid);
         reply->set_gid(stat.st_gid);

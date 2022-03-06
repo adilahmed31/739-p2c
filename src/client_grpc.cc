@@ -102,15 +102,16 @@ int BasicRPCClient::c_create(const std::string& path, int flag) {
     return reply->value();
 }
 
-int BasicRPCClient::c_mkdir(const std::string& path, int flag) {
+int BasicRPCClient::c_mkdir(const std::string& path) {
     auto reply = 
     call_grpc([&](ClientContext* c, const PathNFlag& f,
             Int* r)
             {
                return stub_->s_mkdir(c, f, r);
-            }, get(path, flag), Int(), 
+            }, get(path, 0777), Int(), 
             __PRETTY_FUNCTION__);
     if (!reply) {
+        return -ENOENT;
         // some error in grpc
     }
     return reply->value();
@@ -125,20 +126,21 @@ int BasicRPCClient::c_rm(const std::string& path, int flag) {
             }, get(path, flag), Int(), 
             __PRETTY_FUNCTION__);
     if (!reply) {
-        // some error in grpc
+        return -ENOENT;
     }
     return reply->value();
 }
 
-int BasicRPCClient::c_rmdir(const std::string& path, int flag) {
+int BasicRPCClient::c_rmdir(const std::string& path) {
     auto reply = 
     call_grpc([&](ClientContext* c, const PathNFlag& f,
             Int* r)
             {
                return stub_->s_rmdir(c, f, r);
-            }, get(path, flag), Int(), 
+            }, get(path, 0777), Int(), 
             __PRETTY_FUNCTION__);
     if (!reply) {
+        return -ENOENT;
         // some error in grpc
     }
     return reply->value();
@@ -172,7 +174,25 @@ Stat BasicRPCClient::c_stat(const std::string& path) {
     if (!reply) {
         reply->set_error(-ENONET);
     }
+    //std::cerr << "[*] mode for " << path << " -> " << reply->mode() << "\n";
     return *reply;
+}
+int BasicRPCClient::c_unlink(const char* path) {
+    using RespType = Int;
+    auto reply = 
+    call_grpc([&](ClientContext* c, const PathNFlag& f,
+            RespType* r)
+            {
+               return stub_->s_unlink(c, f, r);
+            }, get(path), RespType(), 
+            __PRETTY_FUNCTION__);
+    if (!reply) {
+        return -ENONET;
+    }
+    ::unlink(get_cache_path(path).c_str());
+    //std::cerr << "[*] mode for " << path << " -> " << reply->mode() << "\n";
+    return reply->value();;
+   
 }
 PathNFlag BasicRPCClient::get(const std::string& path, int flag) {
 
