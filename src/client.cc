@@ -75,7 +75,11 @@ int do_rmdir(const char* path) {
 
 static int do_create(const char* path, mode_t mode, struct fuse_file_info* fi){
      std::cerr << __PRETTY_FUNCTION__ << '\n';
-     return greeter->c_create(path, fi->flags);
+     if (int ret = greeter->c_create(path, fi->flags); ret < 0)
+        return ret;
+    const int fd = fi->fh = greeter->c_open(path, fi->flags);
+    if (fd < 0) return fd;
+    return 0;
 }
 
 static int do_access(const char* path, int) {

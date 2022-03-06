@@ -71,7 +71,7 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
         fs.close();
         Status status = reader->Finish();
         if (!status.ok()) {
-            // TODO: handle gRPC error
+            return -ENOENT;
         }
         auto ret = ::rename(cached_tmp_path.c_str(), cached_path.c_str());
         std::cerr << "after rename -> "  << ret << " " << errno << "\n";
