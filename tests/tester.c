@@ -30,7 +30,7 @@ void testCreateAndCheckExists(char* path){
     close(fd);
     remove(path1);
 }
-
+}
 
 void testCreateWriteAndRead(char* path){
     int len = strlen(path);
