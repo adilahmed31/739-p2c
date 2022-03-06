@@ -1,10 +1,12 @@
 #include "client.h"
 #include <future>
+#define CLOSE_DIRTY_OPT
 
 #include <fuse.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+static bool fd_dirty[1 << 16];
 void sigintHandler(int sig_num)
 {
     std::cerr << "Clean Shutdown\n";
@@ -59,6 +61,9 @@ static void *hello_init(struct fuse_conn_info *conn)
 static int do_open(const char* path, struct fuse_file_info* fi) {
     std::cerr << __PRETTY_FUNCTION__ << '\n';
     fi->fh = greeter->c_open(path, fi->flags);
+#ifdef CLOSE_DIRTY_OPT
+    fd_dirty[fi->fh] = 0;
+#endif
     return 0;
 }
 int do_mkdir(const char* path, mode_t mode) {
@@ -96,6 +101,9 @@ static int do_read(const char* path, char* buf,
 
 static int do_write(const char* path, const char* buf,
         size_t size, off_t offset, struct  fuse_file_info *fi){
+#ifdef CLOSE_DIRTY_OPT
+    fd_dirty[fi->fh] = 1;
+#endif
 
     const int rc = pwrite(fi->fh,buf,size,offset);
     std::cerr << __PRETTY_FUNCTION__ << path << " " << rc << "\n";
@@ -133,6 +141,11 @@ int do_readdir(const char* path, void* buffer, fuse_fill_dir_t filler,
 
 static int do_release(const char* path, struct fuse_file_info* fi) {
     std::cerr <<"closing file now..\n";
+#ifdef CLOSE_DIRTY_OPT
+    if (!fd_dirty[fi->fh]) {
+        std::cerr << path << " is clean. skip gRPC\n";
+    } else
+#endif
     greeter->c_release(path, fi->fh);
     return ::close(fi->fh);
 }
