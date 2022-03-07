@@ -1,5 +1,5 @@
-// rm -rf ~/.fuse_server/* ; g++ benchmark.cpp -std=c++17 -O3 -pthread &&   ./a.out
-// rm -rf ~/.fuse_server/* ; g++ benchmark.cpp -std=c++17 -O3 -pthread &&   ./a.out
+// rm -rf ~/.fuse_server/* ; g++ bechmark.cpp -std=c++17 -O3 -pthread &&   ./a.out
+// rm -rf ~/.fuse_server/* ; g++ bechmark.cpp -std=c++17 -O3 -pthread &&   ./a.out
 #include <bits/stdc++.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -122,14 +122,19 @@ void bench_open_first() {
     Stats st_close("client_clean_file_close");
     for (int i = 0; i < N; i++) {
         const int sz = sizes[i];
-        Stats open_sz("client_first_open_" + std::to_string(sz) + "B");
-        int fd;
-        {
-            Clocker _(open_sz);
-            fd = ::open(fnames[i].c_str(), O_RDWR, "r");
+        int k = 2;
+        while (k--) {
+            std::string st_name_tmp = (k==1) ? "client_first_open," : "client_subseq_open,";
+            Stats open_sz(st_name_tmp + std::to_string(sz));
+            int fd;
+            {
+                Clocker _(open_sz);
+                fd = ::open(fnames[i].c_str(), O_RDWR, "r");
+            }
+            Clocker _(st_close);
+            ::close(fd);
+            ::unlink(fnames[i].c_str());
         }
-        Clocker _(st_close);
-        ::close(fd);
     }
 }
 const bool SYNC_MODE = []() {
