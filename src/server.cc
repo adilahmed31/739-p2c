@@ -26,6 +26,15 @@ std::string get_server_path(const std::string& path) {
 
 class BasicRPCServiceImpl final : public BasicRPC::Service
 {
+    Stats st_creat, st_mkdir, st_stat, st_open,
+            st_close;
+public:
+    BasicRPCServiceImpl():
+            st_creat("server_create"),
+            st_mkdir("server_mkdir"),
+            st_stat("server_stat"),
+            st_open("server_open"),
+            st_close("server_close") {}
     Status s_unlink(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
@@ -43,10 +52,13 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
                            , Int* reply) override
     {
         cerr_serv_calls(__PRETTY_FUNCTION__);
+        Clocker _(st_creat);
         const auto path = get_server_path(req->path());
         reply->set_value(0);
-        if ( ::creat(path.c_str(), 0777) < 0 )
+        int fd;
+        if ( (fd=::creat(path.c_str(), 0777)) < 0 )
             reply->set_value(-errno);
+        else ::close(fd);
    //     std::ofstream fs(path.c_str()); fs << "test string";
         struct stat  st ;
         const int ret = get_stat(path.c_str(), st);
@@ -57,6 +69,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     Status s_mkdir(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
+        Clocker _(st_mkdir);
         cerr_serv_calls(__PRETTY_FUNCTION__);
         const auto path = get_server_path(req->path());
         if(::mkdir(path.c_str(), 0777) < 0) { 
@@ -91,6 +104,7 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     Status s_readdir(ServerContext* context, const PathNFlag* req
                            , helloworld::ReadDirResp* reply) override
     {
+        cerr_serv_calls(__PRETTY_FUNCTION__);
         DIR *dp;
         struct dirent *de;
         const auto path = get_server_path(req->path());
@@ -111,6 +125,8 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
     Status s_stat(ServerContext* context, const PathNFlag* req
                            , Stat* reply) override
     {
+        cerr_serv_calls(__PRETTY_FUNCTION__);
+        Clocker _(st_stat);
         const auto path = get_server_path(req->path());
         const int ret = set_stat(path.c_str(), reply);
         reply->set_error(ret);
@@ -121,7 +137,9 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
 
     Status s_open(ServerContext* context, const PathNFlag* req, 
                     ServerWriter<helloworld::File>* writer) override {
+
         cerr_serv_calls(__PRETTY_FUNCTION__);
+        Clocker _(st_open);
         constexpr int sz = 1 << 16;
         static thread_local char* buf= new char[sz];
 
@@ -163,6 +181,8 @@ class BasicRPCServiceImpl final : public BasicRPC::Service
 
     Status s_close(ServerContext* context, ServerReader<
                   helloworld::File>* reader, Int* reply) override {
+        cerr_serv_calls(__PRETTY_FUNCTION__);
+        Clocker _(st_close);
         helloworld::File file;
         reader->Read(&file);
         struct utimbuf new_ts;
@@ -215,7 +235,6 @@ private:
         if (ret < 0) { cerr_serv_calls("stat got error for ", path, " -> ", -errno);  return -errno; }
         return 0;
     }
-    
 };
 
 void sigintHandler(int sig_num)

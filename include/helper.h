@@ -6,10 +6,48 @@
 #include "helloworld.grpc.pb.h"
 #include <utime.h>
 #include <sys/stat.h>
+#include <numeric>
 
 enum class RUN_MODE_ENUM {
     POSIX, SYNC, STRICT
 };
+
+class Stats {
+    std::vector<uint64_t> stats;
+    std::string name;
+public:
+    Stats(): name("unnnamed"){}
+    Stats(const std::string name_): name(std::move(name_)) {}
+    void add(uint64_t ns) {
+        stats.push_back(ns);
+    }
+    ~Stats() {
+        std::cout << name << ", ";
+        if (stats.size() == 0) {
+            std::cout << "weird...\n";
+        }
+        if (stats.size() == 1) {
+            std::cout << stats.front() << "\n";
+        } else {
+            const auto sum = std::accumulate(stats.begin(), stats.end(), 0ULL);
+            std::cout <<(int) ( ((double) sum) / stats.size() ) << "\n";
+        }
+    }
+};
+
+struct Clocker {
+    const std::chrono::time_point<std::chrono::high_resolution_clock> start;
+    Stats& stats;
+    Clocker(Stats& stat): start(std::chrono::high_resolution_clock::now()), stats(stat){}
+    uint64_t get_ns() const {
+        using namespace std::chrono;
+        return duration_cast<nanoseconds>(high_resolution_clock::now() - start).count();
+    }
+    ~Clocker() {
+        stats.add(get_ns());
+    }
+};
+
 
 const auto RUN_MODE = []() {
         const auto mode = std::getenv("RUN_MODE");
@@ -60,6 +98,7 @@ inline std::pair<int, std::string> get_tmp_file() {
     char templat[100];
     strcpy(templat, "/users/agabhin/.fuse_server/afs_tmp_fileXXXXXX");
     const int fd = mkstemp(templat);
+    ::chmod(templat, 0777);
     return {fd, std::string(templat)};
 }
 

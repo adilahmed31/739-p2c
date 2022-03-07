@@ -185,7 +185,7 @@ static int do_release(const char* path, struct fuse_file_info* fi) {
 void test() {
     usleep(1e6);
     const char* fname = "/tmp/ab_fs/b.txt";
-    int fd = ::open(fname, O_CREAT| O_RDWR);
+    int fd = ::open(fname, O_CREAT| O_RDWR, "w");
 //    std::cerr << "open w fd:"  << fd << "\n";
     ::write(fd, fname, strlen(fname));
     ::write(fd, fname, strlen(fname));
