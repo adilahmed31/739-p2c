@@ -3,7 +3,7 @@
 rv=$(cat /proc/sys/kernel/random/uuid | sed 's/[-]//g' | head -c 20)
 echo "create 2000 files of 4kb x 4"
 function c1000_4() {
-    mkdir 1000_of_4kb
+    mkdir 1000_of_4kb_${rv}
     for i in `seq 1 2000`; do
         head -c 4K /dev/urandom >> 1000_of_4kb_${rv}/$i
         head -c 4K /dev/urandom >> 1000_of_4kb_${rv}/$i
