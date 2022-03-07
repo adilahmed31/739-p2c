@@ -1,10 +1,25 @@
 #include "client.h"
 #include <future>
 #define CLOSE_DIRTY_OPT
-
 #include <fuse.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+static struct options {
+	const char *host;
+	const char *port;
+	int show_help;
+} options;
+
+#define OPTION(t,p){t, offsetof(struct options, p), 1}
+
+static const struct fuse_opt option_spec[] = {
+    OPTION("--host=%s", host),
+    OPTION("--port=%s", port),
+    OPTION("-h", show_help),
+    OPTION("--help",show_help),
+    FUSE_OPT_END
+};
 
 static fd_data* fds = BasicRPCClient::fds;
 fd_data BasicRPCClient::fds[1 << 16];
@@ -192,12 +207,44 @@ void test() {
     ::write(fd, "\n", 1);
     ::close(fd);
 }
+
+static void show_help(const char *progname)
+{
+	printf("usage: %s [options] <mountpoint>\n\n", progname);
+	printf("File-system specific options:\n"
+	       "    --host=<s>          Hostname of the remote server"
+	       "                        (default: localhost)\n"
+	       "    --port=<s>          Port on which the server is running "
+	       "                        (default is taken from GRPC environment variable"
+	       "\n");
+}
+
+
+
+
+
 static struct fuse_operations operations;
 int main(int argc, char *argv[])
 {
-    // "ctrl-C handler"
+     // "ctrl-C handler"
     signal(SIGINT, sigintHandler);
-    const std::string target_str = "localhost:" + get_port_from_env();
+    
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    //Set defaults
+    options.host = strdup("localhost");
+    if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1)
+        return 1;
+
+    if (options.show_help) {
+        show_help(argv[0]);
+        assert(fuse_opt_add_arg(&args, "--help") == 0);
+        args.argv[0][0] = '\0';
+    }
+    
+    std::string host = options.host;
+    std::string port = options.port;
+    
+    const std::string target_str = host + ":" + port;
     grpc::ChannelArguments ch_args;
 
     ch_args.SetMaxReceiveMessageSize(INT_MAX);
@@ -226,5 +273,7 @@ int main(int argc, char *argv[])
     operations.mkdir = do_mkdir;
     operations.rmdir = do_rmdir;
     operations.unlink = do_unlink;
-    return fuse_main(argc, argv, &operations, &greeter);
+    int ret =  fuse_main(args.argc, args.argv, &operations, &greeter);
+    fuse_opt_free_args(&args);
+    return ret;
 }
