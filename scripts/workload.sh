@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rv=$RANDOM
+rv=$(cat /proc/sys/kernel/random/uuid | sed 's/[-]//g' | head -c 20)
 echo "create 2000 files of 4kb x 4"
 function c1000_4() {
     mkdir 1000_of_4kb
