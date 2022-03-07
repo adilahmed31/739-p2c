@@ -1,5 +1,5 @@
-// rm ~/.fuse_server/* ; g++ bechmark.cpp -std=c++17 -O3 -pthread &&   ./a.out
-// rm ~/.fuse_server/* ; g++ bechmark.cpp -std=c++17 -O3 -pthread &&   ./a.out
+// rm -rf ~/.fuse_server/* ; g++ bechmark.cpp -std=c++17 -O3 -pthread &&   ./a.out
+// rm -rf ~/.fuse_server/* ; g++ bechmark.cpp -std=c++17 -O3 -pthread &&   ./a.out
 #include <bits/stdc++.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -197,7 +197,6 @@ void rw_th() {
 }
 
 int main() {
-    system("rm -f /tmp/fuse_cache/*");
     rw_th();
     bench_open_first();
     bench_create();
