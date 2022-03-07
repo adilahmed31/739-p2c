@@ -132,8 +132,67 @@ void bench_open_first() {
         ::close(fd);
     }
 }
+const bool SYNC_MODE = []() {
+        const auto mode = std::getenv("RUN_MODE");
+        if (mode == nullptr) {
+            return false;
+        }
+        if (strcmp(mode, "STRICT") == 0) {
+            return false;
+        }
+        if (strcmp(mode, "SYNC") == 0) {
+            std::cerr << "[RUN_MODE] = SYNC\n";
+            return true;
+        }
+        return true;
+}();
+
+
+void rw_th() {
+    // write 100MB using different block sizes
+    const std::vector<int> sizes = {100, 1000, 10000, 100000};
+    const uint64_t TOTAL_WRITE = 100 * (1000 * 1000) / (SYNC_MODE ? 10 : 1); // 100 MB
+    const int max_sz = *std::max_element(sizes.begin(), sizes.end());
+    char* buf = new char[max_sz];
+    std::fill(buf, buf + max_sz, 'Z');
+    for (auto sz:sizes) {
+        const auto fname = fs_path + std::to_string(sz);
+        int fd = ::open(fname.c_str(), O_CREAT | O_RDWR, "w");
+        const int target_write = SYNC_MODE ? (sz * 50) : TOTAL_WRITE;
+        if (fd < 0) { std::cerr << "rw_th ::open error\n"; }
+        {
+            Stats write_ts_sz("write_ts, " + std::to_string(sz)
+                        + ", " + std::to_string(target_write));
+            Clocker _(write_ts_sz);
+            uint64_t written = 0;
+            while (written < target_write) {
+                ::write(fd, buf, sz);
+                written += sz;
+            }
+        }
+        ::close(fd);
+        fd = ::open(fname.c_str(), O_RDWR, "r");
+        if (fd < 0) { std::cerr << "rw_th ::open error\n"; }
+        {
+            Stats write_ts_sz("read_ts, " + std::to_string(sz)
+                    + ", " + std::to_string(target_write));
+            Clocker _(write_ts_sz);
+            uint64_t readd = 0;
+            int r1;
+            while (r1 = ::read(fd, buf, sz)) {
+                readd += r1;
+            }
+            if (readd != target_write) { std::cerr << "issue in read\n"; }
+        }
+        ::close(fd);
+        ::remove(fname.c_str());
+    }
+
+    delete[] buf;
+}
 
 int main() {
+    rw_th();
     bench_open_first();
     bench_create();
 }

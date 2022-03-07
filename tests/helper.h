@@ -15,10 +15,10 @@ public:
             std::cout << "weird...\n";
         }
         if (stats.size() == 1) {
-            std::cout << stats.front() << "\n";
+            std::cout << stats.front() << std::endl;
         } else {
             const auto sum = std::accumulate(stats.begin(), stats.end(), 0ULL);
-            std::cout <<(int) ( ((double) sum) / stats.size() ) << "\n";
+            std::cout <<(int) ( ((double) sum) / stats.size() ) << std::endl;
         }
     }
 };
