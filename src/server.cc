@@ -225,9 +225,9 @@ void sigintHandler(int sig_num)
     std::exit(0);
 }
 
-void run_server()
+void run_server(std::string port_number)
 {
-    std::string server_address("localhost:" + get_port_from_env());
+    std::string server_address("localhost:" + port_number);
     BasicRPCServiceImpl service;
     //  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
     ServerBuilder builder;
@@ -248,12 +248,23 @@ void run_server()
     // responsible for shutting down the server for this call to ever return.
     server->Wait();
 }
-int main()
+
+int main(int argc, char* argv[])
 {
-
-    // "ctrl-C handler"
+ // "ctrl-C handler"
     signal(SIGINT, sigintHandler);
+    std::string port;
+    if (argc == 1){
+        port = get_port_from_env();
+    }
+    else{
+        port = argv[1];
+    }
 
-
-    run_server();
+    //Create server path if it doesn't exist
+    DIR* dir = opendir(get_server_path("").c_str());
+    if (ENOENT == errno){
+        mkdir(get_server_path("").c_str(),0777);
+    }
+    run_server(port);
 }
