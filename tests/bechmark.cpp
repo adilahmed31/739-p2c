@@ -197,6 +197,7 @@ void rw_th() {
 }
 
 int main() {
+    system("rm -f /tmp/fuse_cache/*");
     rw_th();
     bench_open_first();
     bench_create();
