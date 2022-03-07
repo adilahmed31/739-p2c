@@ -194,7 +194,8 @@ public:
             " modts: ", new_ts.modtime);
 
         while (reader->Read(&file)) {
-            ::write(tmp_fd, file.byte().c_str(), file.byte().length());
+            [[maybe_unused]]const int r =
+                ::write(tmp_fd, file.byte().c_str(), file.byte().length());
         }
         ::close(tmp_fd);
         ::utime(tmp_fname.c_str(), &new_ts);
@@ -237,17 +238,19 @@ private:
     }
 };
 
+std::unique_ptr<BasicRPCServiceImpl> service;
 void sigintHandler(int sig_num)
 {
     std::cerr << "Clean Shutdown\n";
+    service.reset();
     fflush(stdout);
     std::exit(0);
 }
 
 void run_server(std::string hostname, std::string port_number)
 {
+    service = std::make_unique<BasicRPCServiceImpl>();
     std::string server_address(hostname +":"+ port_number);
-    BasicRPCServiceImpl service;
     //  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
     ServerBuilder builder;
     // Listen on the given address without any authentication mechanism.
@@ -258,7 +261,7 @@ void run_server(std::string hostname, std::string port_number)
 
     // Register "service" as the instance through which we'll communicate with
     // clients. In this case it corresponds to an *synchronous* service.
-    builder.RegisterService(&service);
+    builder.RegisterService(service.get());
     // Finally assemble the server.
     std::unique_ptr<Server> server(builder.BuildAndStart());
     std::cout << "Server listening on " << server_address << std::endl;

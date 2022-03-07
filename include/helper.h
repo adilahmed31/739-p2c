@@ -24,9 +24,8 @@ public:
     ~Stats() {
         std::cout << name << ", ";
         if (stats.size() == 0) {
-            std::cout << "weird...\n";
-        }
-        if (stats.size() == 1) {
+            std::cout << "X\n";
+        } else if (stats.size() == 1) {
             std::cout << stats.front() << "\n";
         } else {
             const auto sum = std::accumulate(stats.begin(), stats.end(), 0ULL);
