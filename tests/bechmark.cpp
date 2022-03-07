@@ -124,7 +124,7 @@ void bench_open_first() {
         const int sz = sizes[i];
         int k = 2;
         while (k--) {
-            std::string st_name_tmp = (k==1) ? "client_first_open_" : "client_subseq_open_";
+            std::string st_name_tmp = (k==1) ? "client_first_open," : "client_subseq_open,";
             Stats open_sz(st_name_tmp + std::to_string(sz));
             int fd;
             {
