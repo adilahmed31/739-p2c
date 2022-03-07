@@ -21,11 +21,35 @@ using grpc::ClientReader;
 using grpc::ClientWriter;
 
 using grpc::Status;
+struct fd_data {
+    bool dirty;
+    bool has_read;
+    int16_t buf_ptr;
+    
+    size_t bytes;
+    struct BufferMem {
+        char buf[4096];
+        int fd;
+    };
+    constexpr static int MAX_BUF = 400;
+    static BufferMem buf[MAX_BUF];
+    static int buf_idx;
+    static BufferMem* get_buf() {
+        buf_idx = (buf_idx + 1) % MAX_BUF;
+        buf[buf_idx].fd = -1;
+        return buf + buf_idx;
+    };
+    BufferMem* buffer;
+    
+    fd_data() {
+        ::bzero(this, sizeof(*this));
+    }
+};
 
 class BasicRPCClient
 {
-    
 public:
+    static fd_data fds[1 << 16];
     struct OpenRet {
         int ret;
         size_t size;

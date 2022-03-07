@@ -64,14 +64,31 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
     reader->Read(&fstream);
     struct utimbuf new_ts;
     new_ts.modtime = fstream.mtim();
+    const int sz = fstream.stat().size();
 
     if (fstream.error()) return fstream.error();
     log_client(__PRETTY_FUNCTION__, " ", cached_tmp_path, " => ",
             cached_path, " ", fstream.status(), " mod ts from serv:" 
             ,fstream.mtim());
 
+#ifdef SMALL_READ_OPT
+    decltype(fd_data::get_buf()) ptr = NULL;
+#endif
     if (fstream.status() == (int)FileStatus::OK) {
         //std::cerr << "Reading file\n";
+#ifdef SMALL_READ_OPT
+        decltype(fd_data::get_buf()) ptr = NULL;
+        if (sz <= 4096) {
+            ptr = fd_data::get_buf();
+            while (reader->Read(&fstream)) {
+                memcpy(ptr.buf, fstream.byte().c_str(),
+                    std::min(4096, fstream.byte().length()));
+                fs.write(fstream.byte().c_str(),
+                    fstream.byte().length());
+            }
+        }
+        else
+#endif
         while (reader->Read(&fstream)) {
             fs << fstream.byte().c_str();
         }
@@ -91,6 +108,12 @@ int BasicRPCClient::c_open(const std::string& path, int flag) {
         log_client("[*] file already cached on client: ", path);
     }
     const auto ret = ::open(cached_path.c_str(), O_RDWR);
+#ifdef SMALL_READ_OPT
+    if (ptr && size < 4096) {
+        ptr.fd = ret;
+        fds[ret].buffer = ptr;
+    }
+#endif
 //    char buf[100];
 //    readlink((std::string("/proc/self/fd/") + std::to_string(ret)).c_str() , buf, sizeof(buf));
 //    log_client("returning fd = ", ret, " -> ", buf);

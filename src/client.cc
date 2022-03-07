@@ -6,14 +6,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-struct fd_data {
-    bool dirty;
-    size_t bytes;
-    fd_data() {
-        ::bzero(this, sizeof(*this));
-    }
-};
-static fd_data fds[1 << 16];
+static fd_data* fds = BasicRPCClient::fds;
+fd_data BasicRPCClient::fds[1 << 16];
 void sigintHandler(int sig_num)
 {
     std::cerr << "Clean Shutdown\n";
@@ -101,6 +95,13 @@ static int do_access(const char* path, int) {
 
 static int do_read(const char* path, char* buf,
     size_t size, off_t offset, struct  fuse_file_info *fi){
+#ifdef SMALL_READ_OPT
+    if (offset == 0 && size == 4096) {
+        const auto& fd = fds[fi->fh];
+        if (fd.buffer && fd.fd == fi->fh)
+            memcpy(buf, fd.buffer, fd.buf_size); // TODO::
+    {
+#endif
     int rc = 0;
     rc = pread(fi->fh,buf,size,offset);
     
