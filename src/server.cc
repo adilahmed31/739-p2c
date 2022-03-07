@@ -27,13 +27,14 @@ std::string get_server_path(const std::string& path) {
 class BasicRPCServiceImpl final : public BasicRPC::Service
 {
     Stats st_creat, st_mkdir, st_stat, st_open,
-            st_close;
+            st_close, st_rmdir;
 public:
     BasicRPCServiceImpl():
             st_creat("server_create"),
             st_mkdir("server_mkdir"),
             st_stat("server_stat"),
             st_open("server_open"),
+            st_rmdir("server_rmdir"),
             st_close("server_close") {}
     Status s_unlink(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
@@ -84,6 +85,7 @@ public:
     Status s_rmdir(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
+        Clocker _(st_rmdir);
         cerr_serv_calls(__PRETTY_FUNCTION__);
         const auto path = get_server_path(req->path());
         if(::rmdir(path.c_str()) < 0) { 
@@ -194,7 +196,8 @@ public:
             " modts: ", new_ts.modtime);
 
         while (reader->Read(&file)) {
-            ::write(tmp_fd, file.byte().c_str(), file.byte().length());
+            [[maybe_unused]]const int r =
+                ::write(tmp_fd, file.byte().c_str(), file.byte().length());
         }
         ::close(tmp_fd);
         ::utime(tmp_fname.c_str(), &new_ts);
@@ -237,17 +240,19 @@ private:
     }
 };
 
+std::unique_ptr<BasicRPCServiceImpl> service;
 void sigintHandler(int sig_num)
 {
     std::cerr << "Clean Shutdown\n";
+    service.reset();
     fflush(stdout);
     std::exit(0);
 }
 
 void run_server(std::string hostname, std::string port_number)
 {
+    service = std::make_unique<BasicRPCServiceImpl>();
     std::string server_address(hostname +":"+ port_number);
-    BasicRPCServiceImpl service;
     //  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
     ServerBuilder builder;
     // Listen on the given address without any authentication mechanism.
@@ -258,7 +263,7 @@ void run_server(std::string hostname, std::string port_number)
 
     // Register "service" as the instance through which we'll communicate with
     // clients. In this case it corresponds to an *synchronous* service.
-    builder.RegisterService(&service);
+    builder.RegisterService(service.get());
     // Finally assemble the server.
     std::unique_ptr<Server> server(builder.BuildAndStart());
     std::cout << "Server listening on " << server_address << std::endl;
