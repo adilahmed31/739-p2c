@@ -27,13 +27,14 @@ std::string get_server_path(const std::string& path) {
 class BasicRPCServiceImpl final : public BasicRPC::Service
 {
     Stats st_creat, st_mkdir, st_stat, st_open,
-            st_close;
+            st_close, st_rmdir;
 public:
     BasicRPCServiceImpl():
             st_creat("server_create"),
             st_mkdir("server_mkdir"),
             st_stat("server_stat"),
             st_open("server_open"),
+            st_rmdir("server_rmdir"),
             st_close("server_close") {}
     Status s_unlink(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
@@ -84,6 +85,7 @@ public:
     Status s_rmdir(ServerContext* context, const PathNFlag* req
                            , Int* reply) override
     {
+        Clocker _(st_rmdir);
         cerr_serv_calls(__PRETTY_FUNCTION__);
         const auto path = get_server_path(req->path());
         if(::rmdir(path.c_str()) < 0) { 
