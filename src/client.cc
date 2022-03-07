@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
     std::string host = options.host;
     std::string port = options.port;
     
-    const std::string target_str = host + port;
+    const std::string target_str = host + ":" + port;
     grpc::ChannelArguments ch_args;
 
     ch_args.SetMaxReceiveMessageSize(INT_MAX);

@@ -27,10 +27,11 @@ void testCreateAndCheckExists(char* path){
     }
     else{
         printf("Test 1 Create a file: FAILED\n");
+    }
     close(fd);
     remove(path1);
 }
-}
+
 
 void testCreateWriteAndRead(char* path){
     int len = strlen(path);
