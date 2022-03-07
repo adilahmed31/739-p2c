@@ -1,4 +1,5 @@
 #include "helloworld.grpc.pb.h"
+#define DISBALE_BENCH
 #include "helper.h"
 
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
